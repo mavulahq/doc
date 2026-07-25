@@ -4,7 +4,7 @@ sidebarTitle: "Legacy Batches"
 description: "Generate regulatory export files, stage and validate legacy fixed-width imports, download artifacts, and record authority delivery evidence."
 ---
 
-The Legacy Interoperability endpoints bridge Workbench's modern job infrastructure with regulatory reporting formats and fixed-width file interchange. You can request the generation of a regulatory export from Ledger Core transactions, upload inbound fixed-width files for staged validation, download immutable export artifacts for authority delivery, and record a durable delivery receipt once an export has been submitted to a regulator. All six endpoints require the `compliance.manage` permission, and all mutating operations require an `Idempotency-Key` header.
+The Legacy Interoperability endpoints bridge Workbench's modern job infrastructure with regulatory reporting formats and fixed-width file interchange. You can request the generation of a regulatory export from Ledger Core transactions, upload inbound fixed-width files for staged validation, download immutable export artifacts for authority delivery, and record a durable delivery receipt once an export has been submitted to a regulator. All seven endpoints require the `compliance.manage` permission, and all mutating operations require an `Idempotency-Key` header.
 
 <Warning>
 Legacy imports do **not** create financial mutations. Staging and validating a legacy file through `POST /api/legacy-imports` does **not** post transactions, create accounts, or alter any ledger balance. A validation acceptance only confirms the file is structurally correct. A separate, explicitly approved migration process is required to produce any financial effect.

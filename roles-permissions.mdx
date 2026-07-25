@@ -1,26 +1,25 @@
 ---
-title: "Roles and Permissions in MAVULA"
+title: "MAVULA Roles, Permissions, and Maker-Checker Rules"
 sidebarTitle: "Roles & Permissions"
-description: "Understand MAVULA's six built-in roles, their permission sets, and how maker-checker enforcement works in financial workflows."
+description: "Understand MAVULA's built-in roles, their permission sets, and how maker-checker separation of duties is enforced in financial workflows."
 ---
 
 MAVULA's authorization model is built on least privilege and separation of duties. A role is a named collection of permissions that maps to a specific institutional responsibility. When you call any protected operation, MAVULA evaluates the permissions carried by your bearer token against the permissions declared on that operation — if the intersection is empty, the request is rejected with a `403`. You should always assign the minimum role that satisfies the operator's actual duties, and verify the effective permissions of any token before issuing financial commands.
 
 ## Built-in roles
 
-The six built-in roles cover the full range of institutional duties from read-only observation through platform administration and automated service integration.
+The built-in roles cover the full range of institutional duties from read-only observation through administration and automated service integration.
 
 | Role | Typical responsibility | Core permissions |
 |---|---|---|
-| `operations_viewer` | Read operational and financial state | `finance.read` |
 | `operations_maker` | Submit controlled changes | `finance.read`, `finance.write` |
 | `operations_checker` | Approve or reject controlled changes | `finance.read`, `finance.approve` |
 | `compliance_officer` | Review and generate regulated outputs | `finance.read`, `compliance.manage` |
-| `platform_administrator` | Manage tenant configuration and access | Explicit administrative permissions only |
-| `service_integration` | Execute a specific machine workflow | Narrow scopes for one integration |
+| `institution_admin` | Manage institution configuration and access | Explicit administrative permissions only |
+| `auditor` | Read audit records and observability data | `audit.read`, `observability.read` |
 
 <Info>
-  The `platform_administrator` role does not implicitly carry `finance.write` or `finance.approve`. Administrative permissions are scoped to tenant configuration and access management, not to day-to-day financial operations. This separation ensures that the person managing access cannot also submit or approve financial transactions.
+  The `institution_admin` role does not implicitly carry `finance.write` or `finance.approve`. Administrative permissions are scoped to institution configuration and access management, not to day-to-day financial operations. This separation ensures that the person managing access cannot also submit or approve financial transactions.
 </Info>
 
 ## Permission reference
@@ -37,7 +36,8 @@ The table below maps the full set of MAVULA permissions to the operations they g
 | `identity.admin` | Manage operator identities and role assignments within the tenant |
 | `workbench.read` | Read job status and operational outputs |
 | `workbench.jobs.write` | Submit and manage asynchronous operational jobs |
-| `observability.read` | Read metrics, traces, and audit log entries |
+| `audit.read` | Read immutable audit log entries |
+| `observability.read` | Read metrics and distributed traces |
 | `internal.worker` | Invoke protected service callbacks (service integration only) |
 
 ## The maker-checker rule

@@ -1,10 +1,10 @@
 ---
-title: "Create Accounts and Read Balances"
+title: "Create an Account and Inspect Its Balance and Statement"
 sidebarTitle: "Account Setup"
 description: "Create a tenant-scoped account with a product and currency, then read its live balance and paginate its statement using cursor-based pagination."
 ---
 
-Every financial record in MAVULA starts with an account. An account belongs to a customer, is governed by a product, and holds a balance denominated in a single ISO 4217 currency. The steps below walk you through creating an account, reading its current balance, and paging through its statement. You need the `finance.write` permission to create and the `finance.read` permission to inspect.
+Every financial record in MAVULA starts with an account. An account belongs to a customer, is governed by a product, and holds a balance denominated in a single ISO 4217 currency. The steps below walk you through creating an account, reading it, checking its current balance, and paging through its statement. You need the `finance.write` permission to create and the `finance.read` permission to inspect.
 
 <Steps>
 
@@ -46,6 +46,17 @@ A successful request returns `201 Created` with the full account object:
 <Note>
   Record the `id` returned in the response. You will use it as the `accountId` path parameter in every subsequent request for this account.
 </Note>
+
+### Read the account
+
+At any time you can fetch the full account object — including its current `status` — with a `GET` request to `https://ledger.mavula.dev/api/accounts/{accountId}`.
+
+```bash
+curl -sS https://ledger.mavula.dev/api/accounts/ACCOUNT_ID \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+
+The response is the same account object returned on creation, updated to reflect any lifecycle transitions that have been applied since.
 
 ### Read the current balance
 

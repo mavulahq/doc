@@ -1,5 +1,5 @@
 ---
-title: "MAVULA: Institutional Financial APIs at Scale"
+title: "MAVULA Institutional Financial API Platform Overview"
 sidebarTitle: "Introduction"
 description: "MAVULA is an institutional financial API platform providing identity, ledger, and operational services for regulated financial workflows."
 ---
@@ -34,7 +34,7 @@ MAVULA is designed around four principles that inform every API decision:
 
 **Explicit integration contract.** Every protected request requires a bearer token. Mutating requests also require an `Idempotency-Key`. All requests should carry an `X-Correlation-ID` so that a single logical operation can be traced across service boundaries. Monetary values are always decimal strings; currencies are ISO 4217 uppercase codes.
 
-**Least-privilege authorization.** Roles grant bounded permission sets. The six built-in roles — from `operations_viewer` through `platform_administrator` — map to institutional duties without over-granting. You can inspect the effective permissions of any token by calling `GET /api/v1/me` on Identity Access.
+**Least-privilege authorization.** Roles grant bounded permission sets. Built-in roles — including `operations_maker`, `operations_checker`, `compliance_officer`, and `institution_admin` — map to institutional duties without over-granting. You can inspect the effective permissions of any token by calling `GET /api/v1/me` on Identity Access.
 
 **Maker-checker enforcement.** The principal that submits an account lifecycle or financial adjustment request cannot also approve it. MAVULA enforces this at the API level, not just in policy documentation.
 
@@ -65,7 +65,7 @@ If you are new to MAVULA, the quickstart walks you through obtaining a token, in
     Understand the three OAuth 2.0 grant types and choose the right one for your integration.
   </Card>
   <Card title="Roles & Permissions" icon="shield-check" href="/roles-permissions">
-    Map institutional duties to the minimum required permissions using MAVULA's six built-in roles.
+    Map institutional duties to the minimum required permissions using MAVULA's built-in roles.
   </Card>
   <Card title="Request Reliability" icon="arrows-rotate" href="/request-reliability">
     Apply idempotency keys, correlation IDs, and exponential backoff to make your integration production-ready.

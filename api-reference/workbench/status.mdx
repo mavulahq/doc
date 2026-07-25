@@ -1,5 +1,5 @@
 ---
-title: "Platform Status API: Queues and Schedules"
+title: "Platform Status API: Health, Queue Depths, and Schedules"
 sidebarTitle: "Status"
 description: "Read overall platform health, per-queue depths and processing rates, and registered schedule configurations to monitor Workbench in real time."
 ---
@@ -14,7 +14,7 @@ Integrate these endpoints into your internal monitoring dashboards or alerting p
 
 ## GET /api/status
 
-Read the overall platform status, including worker health and dependency connectivity.
+Read the overall platform status, including service health and the connectivity state of its dependencies.
 
 **Required permission:** `workbench.read`
 
@@ -45,11 +45,11 @@ Read the overall platform status, including worker health and dependency connect
 </ResponseField>
 
 <ResponseField name="worker" type="object">
-  Worker-specific health details. Structure is implementation-defined and may include fields such as concurrency, active job count, and uptime.
+  Processing health details for the Workbench service. The structure is open-ended and additional fields may be present.
 </ResponseField>
 
 <ResponseField name="dependencies" type="object">
-  Health of downstream dependencies (database, queue broker, external services). Each key is a dependency name and the value contains its connectivity status.
+  Connectivity health of the downstream dependencies the service relies on. Each key is a dependency name and the value contains its connectivity status.
 </ResponseField>
 
 ### Example
@@ -67,13 +67,10 @@ curl -sS https://workbench.mavula.dev/api/status \
   "status": "ok",
   "timestamp": "2026-07-15T08:30:00Z",
   "worker": {
-    "concurrency": 10,
-    "active": 3,
-    "uptime_seconds": 86400
+    "status": "ok"
   },
   "dependencies": {
-    "database": { "status": "ok", "latency_ms": 4 },
-    "queue_broker": { "status": "ok", "latency_ms": 2 },
+    "database": { "status": "ok" },
     "ledger_core": { "status": "ok" }
   }
 }
@@ -85,7 +82,7 @@ curl -sS https://workbench.mavula.dev/api/status \
 
 ## GET /api/status/queues
 
-Read per-queue statistics including current depth, in-flight processing counts, delayed jobs, and dead-letter accumulation. Use this endpoint to detect backlogs and identify queues that may need operator attention.
+Read per-queue statistics including current depth, in-flight processing counts, delayed jobs, and dead-letter accumulation. Use this endpoint to detect processing backlogs and set threshold-based alerts for your own monitoring pipelines.
 
 **Required permission:** `workbench.read`
 
@@ -161,7 +158,7 @@ curl -sS https://workbench.mavula.dev/api/status/queues \
 
 ## GET /api/status/schedules
 
-Read the registered recurring schedules, including their names, queue targets, cadence in milliseconds, and enabled status. Use this endpoint to verify that scheduled jobs such as reconciliation passes are configured correctly and will fire at the expected frequency.
+Read the registered recurring schedules, including their names, queue targets, and cadence in milliseconds. Use this endpoint to verify that scheduled jobs such as reconciliation passes are configured and will fire at the expected frequency.
 
 **Required permission:** `workbench.read`
 

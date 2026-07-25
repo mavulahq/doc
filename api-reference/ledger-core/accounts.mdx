@@ -1,5 +1,5 @@
 ---
-title: "Accounts API: Create, Read, and Statement"
+title: "Accounts API: Create, Read, Balance, and Statement"
 sidebarTitle: "Accounts"
 description: "Create tenant-scoped accounts, read real-time balances, and page through cursor-paginated statements using the Ledger Core Accounts API."
 ---
@@ -16,7 +16,7 @@ The Accounts API gives you full control over the financial accounts that sit at 
 
 Returns all accounts visible to the authenticated tenant.
 
-```
+```text
 GET https://ledger.mavula.dev/api/accounts
 ```
 
@@ -81,7 +81,7 @@ Returns an array of `Account` objects.
 
 Creates a new active, tenant-scoped account linked to a customer and a financial product. An identical `Idempotency-Key` replay returns the original `201` response without creating a duplicate.
 
-```
+```text
 POST https://ledger.mavula.dev/api/accounts
 ```
 
@@ -171,7 +171,7 @@ Returns the newly created `Account` object. The `status` will be `ACTIVE` and `b
 
 Returns a single account by its identifier.
 
-```
+```text
 GET https://ledger.mavula.dev/api/accounts/{accountId}
 ```
 
@@ -202,7 +202,7 @@ Returns the `Account` object. See [Create an account](#create-an-account) for th
 
 Returns the synchronous account balance. This is the authoritative value used for financial decisioning — it reflects every committed posting and is not subject to eventual consistency lag.
 
-```
+```text
 GET https://ledger.mavula.dev/api/accounts/{accountId}/balance
 ```
 
@@ -256,7 +256,7 @@ curl -sS https://ledger.mavula.dev/api/accounts/acct_a1b2c3d4/balance \
 
 Returns a cursor-paginated list of statement entries for an account, ordered by posting time. Use the `next_cursor` value from each response as the `cursor` query parameter on the subsequent request to page forward through the history.
 
-```
+```text
 GET https://ledger.mavula.dev/api/accounts/{accountId}/statement
 ```
 

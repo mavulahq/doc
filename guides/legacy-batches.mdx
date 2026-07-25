@@ -1,5 +1,5 @@
 ---
-title: "Regulatory Exports and Legacy Batch Imports"
+title: "Generate Regulatory Exports and Validate Legacy Imports"
 sidebarTitle: "Legacy Batches"
 description: "Generate auditable regulatory exports and validate legacy import files through Workbench, backed by durable batch receipts that survive worker restarts."
 ---
@@ -109,20 +109,14 @@ Use the legacy import workflow to validate historical records from a prior syste
 
 ### Submit the import for validation
 
-Call `POST https://workbench.mavula.dev/api/legacy-imports` with your file metadata and import parameters. The API creates a batch receipt in `QUEUED` state and begins asynchronous validation.
+Call `POST https://workbench.mavula.dev/api/legacy-imports` using a `multipart/form-data` request and attach your US-ASCII fixed-width file as the `file` field. The file must be no larger than 10 MiB and contain no more than 5,000 detail records. The API creates a batch receipt in `QUEUED` state and begins asynchronous validation.
 
 ```bash
 curl -sS -X POST https://workbench.mavula.dev/api/legacy-imports \
   -H "Authorization: Bearer $MIGRATION_TOKEN" \
-  -H "Content-Type: application/json" \
   -H "Idempotency-Key: f8a1b2c3-d4e5-6789-abcd-ef0123456789" \
   -H "X-Correlation-ID: 12345678-90ab-cdef-1234-567890abcdef" \
-  -d '{
-    "source_file_reference": "gs://institution-migration/batch_001.csv",
-    "source_count": 12500,
-    "period_from": "2015-01-01",
-    "period_to": "2025-12-31"
-  }'
+  -F "file=@batch_001.txt;type=text/plain"
 ```
 
 The response contains a `LegacyBatchReceipt` with `direction: "IMPORT"`. Record its `id`.

@@ -1,7 +1,7 @@
 ---
-title: "Error Responses and Recovery Guide"
+title: "API Error Status Codes, Causes, and Recovery Actions"
 sidebarTitle: "Errors"
-description: "Understand every HTTP error status MAVULA returns, what causes each one, and the safe recovery action to take in your integration."
+description: "Understand every HTTP error status that MAVULA returns, what causes each one, and the safe recovery action to take in your integration."
 ---
 
 When MAVULA returns an error, the HTTP status code is the primary signal for your control flow. Every error response includes a stable JSON body with a `statusCode`, a human-readable `message`, and an `error` label. The most important piece of data to retain — especially for intermittent or unexpected errors — is the correlation ID returned in the `X-Correlation-Id` response header. That identifier links your request to MAVULA's internal traces and is required when contacting support.
@@ -56,7 +56,7 @@ When you open a support request via `workbench.mavula.dev`, include:
 
 - The `X-Correlation-Id` value
 - The timestamp of the request (UTC)
-- The operation name and resource ID (e.g., `POST /api/transfers`, transfer ID if known)
+- The operation name and resource ID (e.g., `POST /api/accounts`, account ID if known)
 - Your idempotency key (the UUID itself, not the full header)
 
 <Warning>

@@ -1,5 +1,5 @@
 ---
-title: "Authenticate with MAVULA APIs"
+title: "MAVULA Authentication: OAuth 2.0 Grant Types Guide"
 sidebarTitle: "Authentication"
 description: "Choose the right OAuth 2.0 grant for your integration — PKCE for operators, client credentials for services, or refresh token rotation."
 ---
@@ -37,10 +37,9 @@ GET https://identity.mavula.dev/auth
   &code_challenge=BASE64URL_SHA256_VERIFIER
   &code_challenge_method=S256
   &state=RANDOM_STATE
-  &nonce=RANDOM_NONCE
 ```
 
-The `state` and `nonce` values must be unique per request and verified on return to prevent request-forgery and replay attacks. Generate them with a CSPRNG and bind them to the user session before the redirect.
+The `state` value must be unique per request and verified on return to prevent request-forgery attacks. Generate it with a CSPRNG and bind it to the user session before the redirect.
 
 **Step 3 — Exchange the code once.** After Identity Access redirects the operator back to your `redirect_uri` with an authorization code, exchange it immediately. An authorization code is single-use; discard it after the exchange whether or not the request succeeds.
 

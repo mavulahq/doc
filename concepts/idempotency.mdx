@@ -1,7 +1,7 @@
 ---
-title: "Idempotency Keys and Safe Retries"
+title: "Idempotency Keys and Duplicate Prevention in MAVULA"
 sidebarTitle: "Idempotency"
-description: "Use idempotency keys to make POST requests retry-safe and prevent duplicate financial commands across network failures or timeouts."
+description: "Use idempotency keys to make every mutating request retry-safe and prevent duplicate financial commands across network failures and timeouts."
 ---
 
 Networks fail, connections time out, and processes restart — but a payment instruction or account creation must only happen once. MAVULA's idempotency system lets you retry any mutating request with confidence by binding a unique key to the result of that command. If the server has already processed your request, it returns the original result instead of executing the operation a second time. Getting this right is one of the most important aspects of building a reliable financial integration.
@@ -17,7 +17,7 @@ Idempotency-Key: 018f4e3b-7c2a-7000-9f1d-3b4a5c6d7e8f
 MAVULA persists a **durable receipt** that binds the key to three things: the request fingerprint (HTTP method, path, and body), your tenant context, and the result. Once a receipt exists, any subsequent request using the same key returns the stored result immediately — no matter how many times you retry.
 
 <Note>
-  Idempotency keys are scoped to your tenant and to the specific operation path. The same key value used against `POST /api/accounts` and `POST /api/transfers` are treated as independent receipts and do not conflict with each other.
+  Idempotency keys are scoped to your tenant and to the specific operation path. The same key value used against `POST /api/accounts` and `POST /api/financial-adjustment-requests` are treated as independent receipts and do not conflict with each other.
 </Note>
 
 ## How to generate an idempotency key
@@ -41,13 +41,13 @@ idempotency_key = str(uuid.uuid7())
 ```
 
 ```bash cURL
-IDEMPOTENCY_KEY=$(python3 -c "import uuid; print(uuid.uuid4())")
+IDEMPOTENCY_KEY=$(uuidgen | tr '[:upper:]' '[:lower:]')
 
 curl -X POST https://ledger.mavula.dev/api/accounts \
   -H "Authorization: Bearer $TOKEN" \
   -H "Idempotency-Key: $IDEMPOTENCY_KEY" \
   -H "Content-Type: application/json" \
-  -d '{ "name": "Operating Account", "currency": "USD" }'
+  -d '{ "customer_id": "customer_001", "product_id": "savings_standard", "name": "Operating Account", "currency": "MZN" }'
 ```
 
 </CodeGroup>
@@ -75,20 +75,20 @@ Once MAVULA accepts a command (HTTP `200` or `201`), the receipt is durable. You
 For **asynchronous operations** (such as batch processing jobs), the receipt identifies the same job that was originally enqueued. You still need to poll the job or batch status resource to determine the final outcome — the receipt guarantees you are tracking the right job, not that the job has completed.
 
 ```http
-POST https://ledger.mavula.dev/api/transfers
+POST https://ledger.mavula.dev/api/accounts
 Authorization: Bearer <token>
 Idempotency-Key: 018f4e3b-7c2a-7000-9f1d-3b4a5c6d7e8f
 Content-Type: application/json
 
 {
-  "sourceAccountId": "acct_01J4X7...",
-  "destinationAccountId": "acct_01J4X8...",
-  "amount": 500000,
-  "currency": "USD"
+  "customer_id": "customer_001",
+  "product_id": "savings_standard",
+  "name": "Primary Savings",
+  "currency": "MZN"
 }
 ```
 
-On the first call, this creates the transfer. On every subsequent call with the same key, MAVULA returns the original response — no second transfer is created.
+On the first call, this creates the account. On every subsequent call with the same key, MAVULA returns the original response — no second account is created.
 
 ## What happens when you reuse a key with a different payload
 

@@ -1,5 +1,5 @@
 ---
-title: "Submit and Monitor Payment Jobs"
+title: "Submit Payment Jobs and Monitor Asynchronous Status"
 sidebarTitle: "Payment Jobs"
 description: "Submit asynchronous payment jobs to Workbench, persist the job identifier, and poll for status — never resubmit a job that is still in progress."
 ---
@@ -116,9 +116,9 @@ Continue polling until the job reaches a terminal state (`COMPLETED` or `FAILED`
 | `COMPLETED` | Process reached its terminal successful state | Reconcile the resulting domain state in Ledger Core |
 | `FAILED` | Retry policy was exhausted or the input cannot proceed | Read `last_error`; correct the input before resubmission |
 
-<Note>
-  The Workbench `WorkerJob` schema exposes additional operational states in extended sources: **Accepted/Queued**, **Active**, **Expired**, and **Compensation required**. If you observe a job that requires compensation, escalate to an authorised operator immediately — automated completion is not safe in that state.
-</Note>
+<Warning>
+  If you encounter a job that cannot be completed automatically — for example because provider state is ambiguous after a timeout — escalate to an authorised operator before taking any corrective action. Do not resubmit while the original job is still running.
+</Warning>
 
 ## Example: disbursement job
 

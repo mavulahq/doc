@@ -18,7 +18,7 @@ All projection endpoints require the `finance.read` permission.
 
 Returns freshness metadata for each projection — including the last processed event identifier, the time it occurred, and the current lag in seconds. Use this endpoint to monitor projection health and to decide whether a projection result is fresh enough for your use case.
 
-```
+```text
 GET https://ledger.mavula.dev/api/projections/status
 ```
 
@@ -87,7 +87,7 @@ Loan activity projections give you a read-optimised view of loan lifecycle event
 
 ### List loan activity projections
 
-```
+```text
 GET https://ledger.mavula.dev/api/projections/loan-activity
 ```
 
@@ -134,7 +134,7 @@ curl -sS https://ledger.mavula.dev/api/projections/loan-activity \
 
 Returns the projection record for a single loan identified by `loanId`.
 
-```
+```text
 GET https://ledger.mavula.dev/api/projections/loan-activity/{loanId}
 ```
 
@@ -176,7 +176,7 @@ Ledger activity projections provide a searchable, read-optimised view of journal
 
 ### List ledger activity projections
 
-```
+```text
 GET https://ledger.mavula.dev/api/projections/ledger-activity
 ```
 
@@ -195,7 +195,7 @@ curl -sS https://ledger.mavula.dev/api/projections/ledger-activity \
 
 Returns the projection record for a single journal entry identified by `journalEntryId`.
 
-```
+```text
 GET https://ledger.mavula.dev/api/projections/ledger-activity/{journalEntryId}
 ```
 
@@ -241,7 +241,7 @@ Product publication projections surface the latest published state of each finan
 
 ### List product publication projections
 
-```
+```text
 GET https://ledger.mavula.dev/api/projections/product-publications
 ```
 
@@ -260,7 +260,7 @@ curl -sS https://ledger.mavula.dev/api/projections/product-publications \
 
 Returns the projection record representing the latest published state of a specific financial product.
 
-```
+```text
 GET https://ledger.mavula.dev/api/projections/product-publications/{productId}
 ```
 
@@ -306,4 +306,4 @@ Projections are powerful for search and reporting, but you should follow these r
 - **Re-read by entity ID** when a list result may have been produced before a recent command. The single-entity endpoints reflect the latest projected state for that record.
 - **Store the `last_event_id` or `updated_at`** when you need incremental reconciliation. This lets you detect whether a projection record has advanced since your last read.
 - **Monitor `lag_seconds`** via `/api/projections/status` in your alerting pipeline. Alert on sustained lag, not on single transient spikes.
-- **Treat the projection payload as a versioned public representation**, not as a direct view of the internal event stream.
+- **Treat the projection payload as a versioned public representation**, not as a raw view of every underlying event that produced it.

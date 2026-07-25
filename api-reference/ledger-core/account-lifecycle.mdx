@@ -1,5 +1,5 @@
 ---
-title: "Account Lifecycle API: Freeze, Unfreeze, Close"
+title: "Account Lifecycle API: Freeze, Unfreeze, and Close"
 sidebarTitle: "Account Lifecycle"
 description: "Submit, approve, and reject account freeze, unfreeze, and close transitions through the MAVULA Ledger Core maker-checker lifecycle API."
 ---
@@ -20,7 +20,7 @@ The Account Lifecycle API controls how accounts move between the `ACTIVE`, `FROZ
 
 Submits a `FREEZE`, `UNFREEZE`, or `CLOSE` transition for the specified account. The request is created in `PENDING_APPROVAL` status and must be approved by a different operator before it takes effect.
 
-```
+```text
 POST https://ledger.mavula.dev/api/accounts/{accountId}/status-transitions
 ```
 
@@ -112,7 +112,7 @@ Returns the newly created `AccountLifecycleRequest` with `status: "PENDING_APPRO
 
 Returns a cursor-paginated list of lifecycle requests. You can filter by account, status, or both.
 
-```
+```text
 GET https://ledger.mavula.dev/api/account-lifecycle-requests
 ```
 
@@ -166,7 +166,7 @@ curl -sS 'https://ledger.mavula.dev/api/account-lifecycle-requests?account_id=ac
 
 Returns a single lifecycle request by its identifier. Use this endpoint to poll for the outcome of a submitted transition after it has been reviewed.
 
-```
+```text
 GET https://ledger.mavula.dev/api/account-lifecycle-requests/{requestId}
 ```
 
@@ -255,7 +255,7 @@ curl -sS https://ledger.mavula.dev/api/account-lifecycle-requests/lcreq_r9s8t7u6
 
 Approves a `PENDING_APPROVAL` lifecycle request and applies the transition to the account. The account status changes atomically upon approval.
 
-```
+```text
 POST https://ledger.mavula.dev/api/account-lifecycle-requests/{requestId}/approve
 ```
 
@@ -314,7 +314,7 @@ Returns the updated `AccountLifecycleRequest` with `status: "APPLIED"` and `appl
 
 Rejects a `PENDING_APPROVAL` lifecycle request. The account status remains unchanged. A `reason` is required when rejecting.
 
-```
+```text
 POST https://ledger.mavula.dev/api/account-lifecycle-requests/{requestId}/reject
 ```
 

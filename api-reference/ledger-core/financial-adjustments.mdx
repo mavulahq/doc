@@ -20,7 +20,7 @@ The Financial Adjustments API lets you correct the financial record without edit
 
 Submits a `REVERSAL` or `CORRECTION` against a posted `TRANSACTION` or `JOURNAL_ENTRY`. The request is created in `PENDING_APPROVAL` status and must be reviewed by a different operator before any financial effect is applied.
 
-```
+```text
 POST https://ledger.mavula.dev/api/financial-adjustment-requests
 ```
 
@@ -166,7 +166,7 @@ Returns the created `FinancialAdjustmentRequest` with `status: "PENDING_APPROVAL
 
 Returns a cursor-paginated list of adjustment requests. You can filter by status, adjustment type, or the target record.
 
-```
+```text
 GET https://ledger.mavula.dev/api/financial-adjustment-requests
 ```
 
@@ -228,7 +228,7 @@ curl -sS 'https://ledger.mavula.dev/api/financial-adjustment-requests?target_id=
 
 Returns a single adjustment request by its identifier. Poll this endpoint to confirm when an approved request has been `APPLIED` or has entered `FAILED` status.
 
-```
+```text
 GET https://ledger.mavula.dev/api/financial-adjustment-requests/{requestId}
 ```
 
@@ -325,7 +325,7 @@ curl -sS https://ledger.mavula.dev/api/financial-adjustment-requests/adjreq_x5y4
 
 Approves a `PENDING_APPROVAL` adjustment request and atomically posts the reversal and, for corrections, the replacement entries. The original record is never modified.
 
-```
+```text
 POST https://ledger.mavula.dev/api/financial-adjustment-requests/{requestId}/approve
 ```
 
@@ -384,7 +384,7 @@ Returns the updated `FinancialAdjustmentRequest` with `status: "APPLIED"` and `a
 
 Rejects a `PENDING_APPROVAL` adjustment request. No financial entries are created. A `reason` is required.
 
-```
+```text
 POST https://ledger.mavula.dev/api/financial-adjustment-requests/{requestId}/reject
 ```
 

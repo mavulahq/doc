@@ -32,7 +32,7 @@ Products are the templates that govern account behaviour — they define currenc
 
 Returns all financial products defined for the authenticated tenant.
 
-```
+```text
 GET https://ledger.mavula.dev/api/products
 ```
 
@@ -55,7 +55,7 @@ curl -sS https://ledger.mavula.dev/api/products \
 
 Creates a new product or updates an existing one. This is an upsert operation; the product `id` in the request body determines whether a new record is created or an existing one is overwritten.
 
-```
+```text
 POST https://ledger.mavula.dev/api/products
 ```
 
@@ -99,7 +99,7 @@ curl -sS -X POST https://ledger.mavula.dev/api/products \
 
 Returns the tenant-level product configuration, including the active jurisdiction and all associated products.
 
-```
+```text
 GET https://ledger.mavula.dev/api/products/config
 ```
 
@@ -122,7 +122,7 @@ curl -sS https://ledger.mavula.dev/api/products/config \
 
 Generates a starter set of products and configuration defaults based on the specified jurisdiction code. Useful when onboarding a new tenant or adding a new operating region.
 
-```
+```text
 POST https://ledger.mavula.dev/api/products/config/generate
 ```
 
@@ -153,7 +153,7 @@ curl -sS -X POST https://ledger.mavula.dev/api/products/config/generate \
   **Required permission:** `finance.read`
 </Note>
 
-```
+```text
 GET https://ledger.mavula.dev/api/products/{productId}
 ```
 
@@ -194,7 +194,7 @@ Rules define the conditions and actions that govern product behaviour — for ex
   **Required permission:** `finance.read`
 </Note>
 
-```
+```text
 GET https://ledger.mavula.dev/api/products/{productId}/rules
 ```
 
@@ -219,7 +219,7 @@ curl -sS https://ledger.mavula.dev/api/products/savings_standard/rules \
   **Required permission:** `configuration.write` — Requires `Idempotency-Key` header.
 </Note>
 
-```
+```text
 POST https://ledger.mavula.dev/api/products/{productId}/rules
 ```
 
@@ -282,7 +282,7 @@ curl -sS -X POST https://ledger.mavula.dev/api/products/savings_standard/rules \
 
 Seeds the platform-recommended default rule set for a product. This is a fast way to get started with a sensible baseline that you can adjust afterwards.
 
-```
+```text
 POST https://ledger.mavula.dev/api/products/{productId}/rules/defaults
 ```
 
@@ -309,7 +309,7 @@ curl -sS -X POST https://ledger.mavula.dev/api/products/savings_standard/rules/d
   **Required permission:** `configuration.write` — Requires `Idempotency-Key` header.
 </Note>
 
-```
+```text
 PUT https://ledger.mavula.dev/api/products/{productId}/rules/{ruleId}
 ```
 
@@ -345,7 +345,7 @@ curl -sS -X PUT https://ledger.mavula.dev/api/products/savings_standard/rules/ru
   **Required permission:** `configuration.write` — Requires `Idempotency-Key` header.
 </Note>
 
-```
+```text
 DELETE https://ledger.mavula.dev/api/products/{productId}/rules/{ruleId}
 ```
 
@@ -387,7 +387,7 @@ Schemas let you define the structure of the custom entities your institution wor
   **Required permission:** `finance.read`
 </Note>
 
-```
+```text
 GET https://ledger.mavula.dev/api/schemas
 ```
 
@@ -408,7 +408,7 @@ curl -sS https://ledger.mavula.dev/api/schemas \
   **Required permission:** `configuration.write` — Requires `Idempotency-Key` header.
 </Note>
 
-```
+```text
 POST https://ledger.mavula.dev/api/schemas
 ```
 
@@ -468,7 +468,7 @@ curl -sS -X POST https://ledger.mavula.dev/api/schemas \
 
 Imports a schema from a portable definition previously exported from another tenant or environment. Accepts the same body shape as the create endpoint.
 
-```
+```text
 POST https://ledger.mavula.dev/api/schemas/import
 ```
 
@@ -494,7 +494,7 @@ curl -sS -X POST https://ledger.mavula.dev/api/schemas/import \
 
 Creates the built-in business registration entity schema with a pre-populated set of common fields required for corporate onboarding.
 
-```
+```text
 POST https://ledger.mavula.dev/api/schemas/presets/business-registration
 ```
 
@@ -516,7 +516,7 @@ curl -sS -X POST https://ledger.mavula.dev/api/schemas/presets/business-registra
   **Required permission:** `finance.read`
 </Note>
 
-```
+```text
 GET https://ledger.mavula.dev/api/schemas/{schemaId}
 ```
 
@@ -541,7 +541,7 @@ curl -sS https://ledger.mavula.dev/api/schemas/schema_abc123 \
 
 Returns a portable schema definition that can be imported into another tenant or environment.
 
-```
+```text
 GET https://ledger.mavula.dev/api/schemas/{schemaId}/export
 ```
 
@@ -582,7 +582,7 @@ Workflows are configurable automation definitions that execute a series of steps
   **Required permission:** `finance.read`
 </Note>
 
-```
+```text
 GET https://ledger.mavula.dev/api/workflows
 ```
 
@@ -603,7 +603,7 @@ curl -sS https://ledger.mavula.dev/api/workflows \
   **Required permission:** `configuration.write` — Requires `Idempotency-Key` header.
 </Note>
 
-```
+```text
 POST https://ledger.mavula.dev/api/workflows
 ```
 
@@ -664,7 +664,7 @@ curl -sS -X POST https://ledger.mavula.dev/api/workflows \
 
 Returns all workflows configured to fire for a specific trigger event.
 
-```
+```text
 GET https://ledger.mavula.dev/api/workflows/trigger/{trigger}
 ```
 
@@ -691,7 +691,7 @@ curl -sS https://ledger.mavula.dev/api/workflows/trigger/LOAN_APPROVED \
 
 Creates a pre-configured workflow that sends a notification when a loan is approved.
 
-```
+```text
 POST https://ledger.mavula.dev/api/workflows/presets/loan-approval-notification
 ```
 
@@ -715,7 +715,7 @@ curl -sS -X POST https://ledger.mavula.dev/api/workflows/presets/loan-approval-n
 
 Creates a pre-configured workflow that charges a monthly maintenance fee to an account.
 
-```
+```text
 POST https://ledger.mavula.dev/api/workflows/presets/monthly-fee-charge
 ```
 
@@ -737,7 +737,7 @@ curl -sS -X POST https://ledger.mavula.dev/api/workflows/presets/monthly-fee-cha
   **Required permission:** `finance.read`
 </Note>
 
-```
+```text
 GET https://ledger.mavula.dev/api/workflows/{workflowId}
 ```
 
@@ -762,7 +762,7 @@ curl -sS https://ledger.mavula.dev/api/workflows/wf_p1q2r3s4 \
 
 Manually triggers a workflow execution with the provided context. Use this for on-demand events or testing.
 
-```
+```text
 POST https://ledger.mavula.dev/api/workflows/{workflowId}/execute
 ```
 

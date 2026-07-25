@@ -1,0 +1,73 @@
+---
+title: "MAVULA: Institutional Financial APIs at Scale"
+sidebarTitle: "Introduction"
+description: "MAVULA is an institutional financial API platform providing identity, ledger, and operational services for regulated financial workflows."
+---
+
+MAVULA is an institutional-grade API platform purpose-built for regulated financial environments. It separates concerns across three discrete services — Identity Access, Ledger Core, and Workbench — so that every integration boundary is explicit, auditable, and independently scalable. You authenticate once through Identity Access, carry a scoped bearer token into Ledger Core for financial commands, and route asynchronous or batch work through Workbench. All services share a common authorization model built on OAuth 2.0, role-based least privilege, and maker-checker separation of duties.
+
+## Service map
+
+MAVULA v1 exposes three API services, each with its own base URL and interaction model. Tenant scope is derived from the authenticated identity — you do not send a tenant selector in the URL or request body unless a specific operation schema explicitly requires it.
+
+<CardGroup cols={3}>
+  <Card title="Identity Access" icon="key" href="https://identity.mavula.dev">
+    **Base URL:** `https://identity.mavula.dev`
+
+    OAuth 2.0 and OpenID Connect. Issues access tokens that carry tenant, institution, branch, role, and permission claims. Exposes PKCE authorization, client credentials, token refresh, and revocation endpoints.
+  </Card>
+  <Card title="Ledger Core" icon="building-columns" href="https://ledger.mavula.dev">
+    **Base URL:** `https://ledger.mavula.dev`
+
+    Synchronous financial commands and reads. Create accounts, post transactions, read balances, and manage account lifecycle. All mutating operations require an `Idempotency-Key`.
+  </Card>
+  <Card title="Workbench" icon="gear" href="https://workbench.mavula.dev">
+    **Base URL:** `https://workbench.mavula.dev`
+
+    Asynchronous jobs and operational reads. Submit long-running operational workflows, monitor job status, and process legacy batch payloads. Poll the status resource rather than resubmitting.
+  </Card>
+</CardGroup>
+
+## Key capabilities
+
+MAVULA is designed around four principles that inform every API decision:
+
+**Explicit integration contract.** Every protected request requires a bearer token. Mutating requests also require an `Idempotency-Key`. All requests should carry an `X-Correlation-ID` so that a single logical operation can be traced across service boundaries. Monetary values are always decimal strings; currencies are ISO 4217 uppercase codes.
+
+**Least-privilege authorization.** Roles grant bounded permission sets. The six built-in roles — from `operations_viewer` through `platform_administrator` — map to institutional duties without over-granting. You can inspect the effective permissions of any token by calling `GET /api/v1/me` on Identity Access.
+
+**Maker-checker enforcement.** The principal that submits an account lifecycle or financial adjustment request cannot also approve it. MAVULA enforces this at the API level, not just in policy documentation.
+
+**Safe retries.** Idempotency keys let you retry any mutation — on network timeout or a 5xx response — without risk of duplicate financial effects. The retry policy distinguishes between retryable server errors and non-retryable client errors so your integration logic stays simple.
+
+## Integration contract at a glance
+
+Every call to a protected endpoint follows the same header pattern:
+
+```http
+Authorization: Bearer eyJ...
+Idempotency-Key: 76b05d81-c975-4daf-b054-72b2eb3a749a
+X-Correlation-ID: 406d8359-a53a-4d2a-a908-628798ece3b3
+Content-Type: application/json
+```
+
+The `Idempotency-Key` is required on mutating operations only; `X-Correlation-ID` should be sent on every call. Generate a fresh UUID for each logical command, and reuse the same key only when retrying an identical method, path, and payload.
+
+## Get started
+
+If you are new to MAVULA, the quickstart walks you through obtaining a token, inspecting your identity, creating your first account, and reading its balance — all in four curl commands.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Exchange an authorization code for a token, create an account, and read its balance in four steps.
+  </Card>
+  <Card title="Authentication" icon="lock" href="/authentication">
+    Understand the three OAuth 2.0 grant types and choose the right one for your integration.
+  </Card>
+  <Card title="Roles & Permissions" icon="shield-check" href="/roles-permissions">
+    Map institutional duties to the minimum required permissions using MAVULA's six built-in roles.
+  </Card>
+  <Card title="Request Reliability" icon="arrows-rotate" href="/request-reliability">
+    Apply idempotency keys, correlation IDs, and exponential backoff to make your integration production-ready.
+  </Card>
+</CardGroup>

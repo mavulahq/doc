@@ -1,0 +1,364 @@
+---
+title: "Token Exchange, Refresh, and Revocation"
+sidebarTitle: "Tokens"
+description: "Start the PKCE authorization flow, exchange codes and credentials for JWTs, rotate refresh tokens, and revoke tokens that must no longer be accepted."
+---
+
+MAVULA Identity Access supports three token acquisition patterns: Authorization Code with PKCE for human operators, client credentials for backend services, and refresh token rotation for long-lived operator sessions. Once you hold an access token you pass it as a Bearer JWT to every protected MAVULA endpoint. When a token must no longer be accepted — on sign-out, credential rotation, or detected compromise — send it to the revocation endpoint so that it is immediately rejected by resource servers even before its natural expiry.
+
+---
+
+## GET /auth
+
+Starts the Authorization Code flow with PKCE. You redirect the user agent (browser) to this URL. MAVULA presents the operator with an authentication interaction and, on completion, issues a short-lived authorization code to your registered `redirect_uri`. No authentication is required to call this endpoint — all parameters are passed as query strings.
+
+Before redirecting, generate a cryptographically random `code_verifier` (minimum 43 characters), compute its SHA-256 hash, and Base64URL-encode the result as `code_challenge`. Store the verifier securely; you will need it at the `/token` step.
+
+### Query parameters
+
+<ParamField query="response_type" type="string" required>
+  Must be `code`. MAVULA only supports the Authorization Code response type.
+</ParamField>
+
+<ParamField query="client_id" type="string" required>
+  Your registered public client identifier, issued when your application was enrolled in MAVULA.
+</ParamField>
+
+<ParamField query="redirect_uri" type="string" required>
+  The exact callback URI registered for your client. The value must match character-for-character — trailing slashes and case differences will cause a rejection.
+</ParamField>
+
+<ParamField query="scope" type="string" required>
+  A space-delimited list of scopes. Must include `openid`. Example: `openid profile finance.read finance.write`.
+</ParamField>
+
+<ParamField query="code_challenge" type="string" required>
+  The Base64URL-encoded SHA-256 hash of your `code_verifier`. Computed as `BASE64URL(SHA256(code_verifier))`.
+</ParamField>
+
+<ParamField query="code_challenge_method" type="string" required>
+  Must be `S256`. Plain challenge methods are not accepted.
+</ParamField>
+
+<ParamField query="state" type="string" required>
+  An opaque, random string (minimum 16 characters) that you generate and verify on the callback to prevent cross-site request forgery. Store it in the user's session before redirecting.
+</ParamField>
+
+<ParamField query="nonce" type="string">
+  An opaque, random string that is embedded in the ID token. Used to prevent replay attacks in OpenID Connect flows. Strongly recommended for all operator flows.
+</ParamField>
+
+### Redirect response `302 Found`
+
+On success, MAVULA redirects the user agent to your `redirect_uri` with `code` and `state` query parameters appended. Verify that the returned `state` matches the value you stored before redirecting.
+
+### Authorization redirect example
+
+```text
+GET https://identity.mavula.dev/auth
+  ?response_type=code
+  &client_id=operator-console
+  &redirect_uri=https%3A%2F%2Fops.example.com%2Fcallback
+  &scope=openid%20profile%20finance.read%20finance.write
+  &code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM
+  &code_challenge_method=S256
+  &state=xK9mN3qR7vL2pT5wY8zA
+  &nonce=hT3kB8nM2xQ6wP1yL7cZ
+```
+
+After the operator authenticates, MAVULA issues a redirect to:
+
+```text
+https://ops.example.com/callback
+  ?code=SplxlOBeZQQYbYS6WxSbIA
+  &state=xK9mN3qR7vL2pT5wY8zA
+```
+
+<Note>
+  The authorization code is single-use and expires within 60 seconds. Pass it immediately to `POST /token`. If you attempt to exchange an already-used or expired code, the server returns `error: invalid_grant`.
+</Note>
+
+---
+
+## POST /token
+
+Exchanges credentials for tokens. Depending on the `grant_type`, you supply an authorization code (from `/auth`), a refresh token (from a previous token response), or service client credentials. The request body must be `application/x-www-form-urlencoded`. A successful response always contains an `access_token`; a `refresh_token` and `id_token` are included when the grant type supports them.
+
+<Tabs>
+  <Tab title="Authorization Code">
+
+    Exchange the authorization code returned to your `redirect_uri` for a full set of tokens. You must supply the original `code_verifier` to prove ownership of the PKCE challenge.
+
+    ### Request body parameters
+
+    <ParamField body="grant_type" type="string" required>
+      Must be `authorization_code`.
+    </ParamField>
+
+    <ParamField body="code" type="string" required>
+      The authorization code received at your `redirect_uri`.
+    </ParamField>
+
+    <ParamField body="redirect_uri" type="string" required>
+      Must exactly match the `redirect_uri` used in the original `/auth` request.
+    </ParamField>
+
+    <ParamField body="code_verifier" type="string" required>
+      The original `code_verifier` you generated before the authorization request. MAVULA verifies it against the stored `code_challenge`.
+    </ParamField>
+
+    <ParamField body="client_id" type="string">
+      Your public client identifier. Required for public clients (those without a `client_secret`).
+    </ParamField>
+
+    <CodeGroup>
+    ```bash cURL
+    curl -sS -X POST https://identity.mavula.dev/token \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      --data-urlencode 'grant_type=authorization_code' \
+      --data-urlencode 'client_id=operator-console' \
+      --data-urlencode 'code=SplxlOBeZQQYbYS6WxSbIA' \
+      --data-urlencode 'redirect_uri=https://ops.example.com/callback' \
+      --data-urlencode 'code_verifier=dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk'
+    ```
+
+    ```typescript TypeScript
+    const body = new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: 'operator-console',
+      code: authorizationCode,
+      redirect_uri: 'https://ops.example.com/callback',
+      code_verifier: originalCodeVerifier,
+    });
+
+    const response = await fetch('https://identity.mavula.dev/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+
+    if (!response.ok) throw new Error(`Token exchange failed: ${response.status}`);
+    const tokens = await response.json();
+    ```
+    </CodeGroup>
+
+  </Tab>
+  <Tab title="Client Credentials">
+
+    Obtain an access token for a backend service using registered client credentials. This grant does not produce an ID token or refresh token — services are expected to re-authenticate when the access token expires.
+
+    ### Request body parameters
+
+    <ParamField body="grant_type" type="string" required>
+      Must be `client_credentials`.
+    </ParamField>
+
+    <ParamField body="client_id" type="string" required>
+      The service client identifier issued to your institutional backend.
+    </ParamField>
+
+    <ParamField body="client_secret" type="string" required>
+      The corresponding client secret. Treat this as a password — store it in a secrets manager and never expose it in logs or client-side code.
+    </ParamField>
+
+    <ParamField body="scope" type="string">
+      The requested scope. Use `internal.worker` for service-to-service MAVULA callbacks.
+    </ParamField>
+
+    <CodeGroup>
+    ```bash cURL
+    curl -sS -X POST https://identity.mavula.dev/token \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      --data-urlencode 'grant_type=client_credentials' \
+      --data-urlencode 'client_id=ledger-sync-worker' \
+      --data-urlencode 'client_secret=YOUR_CLIENT_SECRET' \
+      --data-urlencode 'scope=internal.worker'
+    ```
+
+    ```typescript TypeScript
+    const body = new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: process.env.MAVULA_CLIENT_ID!,
+      client_secret: process.env.MAVULA_CLIENT_SECRET!,
+      scope: 'internal.worker',
+    });
+
+    const response = await fetch('https://identity.mavula.dev/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+
+    if (!response.ok) throw new Error(`Token request failed: ${response.status}`);
+    const { access_token, expires_in } = await response.json();
+    ```
+    </CodeGroup>
+
+    <Warning>
+      Client credentials represent an approved internal worker identity. They do not inherit operator-level permissions and cannot be used to authorize Ledger Core or compliance operations that require a human principal.
+    </Warning>
+
+  </Tab>
+  <Tab title="Refresh Token">
+
+    Exchange a refresh token for a new access token without requiring the operator to authenticate again. Refresh tokens are **rotated** — each successful exchange returns a new refresh token and invalidates the previous one. Persist the replacement atomically.
+
+    ### Request body parameters
+
+    <ParamField body="grant_type" type="string" required>
+      Must be `refresh_token`.
+    </ParamField>
+
+    <ParamField body="refresh_token" type="string" required>
+      The current refresh token from a previous token response or refresh exchange.
+    </ParamField>
+
+    <ParamField body="client_id" type="string">
+      Your public client identifier. Required for public clients.
+    </ParamField>
+
+    <ParamField body="scope" type="string">
+      Optional. If provided, must be a subset of the scopes originally granted. Omit to retain the full original scope.
+    </ParamField>
+
+    <CodeGroup>
+    ```bash cURL
+    curl -sS -X POST https://identity.mavula.dev/token \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      --data-urlencode 'grant_type=refresh_token' \
+      --data-urlencode 'client_id=operator-console' \
+      --data-urlencode 'refresh_token=tGzv3JOkF0XG5Qx2TlKWIA'
+    ```
+
+    ```typescript TypeScript
+    const body = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: 'operator-console',
+      refresh_token: storedRefreshToken,
+    });
+
+    const response = await fetch('https://identity.mavula.dev/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+
+    if (!response.ok) throw new Error(`Token refresh failed: ${response.status}`);
+    const tokens = await response.json();
+    // Persist tokens.refresh_token atomically before using tokens.access_token
+    ```
+    </CodeGroup>
+
+  </Tab>
+</Tabs>
+
+### Token response `200 OK`
+
+All successful `/token` responses share the same JSON structure. Not all fields are present in every grant type.
+
+<ResponseField name="access_token" type="string" required>
+  A PS256-signed JWT. Pass this as a Bearer token to all protected MAVULA endpoints. Contains tenant, institution, branch, role, and permission claims.
+</ResponseField>
+
+<ResponseField name="token_type" type="string" required>
+  Always `Bearer`.
+</ResponseField>
+
+<ResponseField name="expires_in" type="integer" required>
+  Lifetime of the access token in seconds from the time of issuance. Typical value is `3600` (one hour). Do not use a token after it has expired.
+</ResponseField>
+
+<ResponseField name="refresh_token" type="string">
+  A rotating refresh token. Present for `authorization_code` and `refresh_token` grants. Absent for `client_credentials`. Store securely and use only once.
+</ResponseField>
+
+<ResponseField name="id_token" type="string">
+  A PS256-signed OpenID Connect ID token. Present for `authorization_code` grants when `openid` is in scope. Contains the `sub`, `iss`, `aud`, `exp`, and `nonce` claims.
+</ResponseField>
+
+<ResponseField name="scope" type="string">
+  The space-delimited set of scopes actually granted. May differ from the requested set if the operator's role does not permit all requested scopes.
+</ResponseField>
+
+### Token response example
+
+```json
+{
+  "access_token": "eyJhbGciOiJQUzI1NiIsImtpZCI6Im1hdnVsYS1wczI1Ni0yMDI0LTAxIn0...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "refresh_token": "tGzv3JOkF0XG5Qx2TlKWIA",
+  "id_token": "eyJhbGciOiJQUzI1NiIsImtpZCI6Im1hdnVsYS1wczI1Ni0yMDI0LTAxIn0...",
+  "scope": "openid profile finance.read finance.write"
+}
+```
+
+### Error response `400 / 401`
+
+```json
+{
+  "error": "invalid_grant",
+  "error_description": "The authorization code is invalid, expired, or has already been used."
+}
+```
+
+---
+
+## POST /token/revocation
+
+Immediately revokes an access or refresh token. After revocation, resource servers will reject the token even if it has not yet reached its natural expiry. Call this endpoint on operator sign-out, credential rotation, and any time a token may have been compromised.
+
+A `200 OK` response indicates that the revocation request was received and processed. The response body is empty. MAVULA deliberately does not disclose whether the submitted token existed or was already expired — both cases return `200 OK`.
+
+### Request body parameters
+
+<ParamField body="token" type="string" required>
+  The access token or refresh token to revoke. Pass the raw token string, not a JWT claim subset.
+</ParamField>
+
+<ParamField body="token_type_hint" type="string">
+  An optional hint to help the server locate the token more efficiently. Accepted values: `access_token`, `refresh_token`. If omitted, MAVULA searches both token stores.
+</ParamField>
+
+<ParamField body="client_id" type="string">
+  Required for confidential clients authenticating via the request body (`client_secret_post` method).
+</ParamField>
+
+<ParamField body="client_secret" type="string">
+  Required alongside `client_id` for `client_secret_post` authentication.
+</ParamField>
+
+<CodeGroup>
+```bash Revoke a refresh token
+curl -sS -X POST https://identity.mavula.dev/token/revocation \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode 'token=tGzv3JOkF0XG5Qx2TlKWIA' \
+  --data-urlencode 'token_type_hint=refresh_token'
+```
+
+```bash Revoke an access token
+curl -sS -X POST https://identity.mavula.dev/token/revocation \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode 'token=eyJhbGciOiJQUzI1NiIsImtpZCI6Im1hdnVsYS1wczI1Ni0yMDI0LTAxIn0...' \
+  --data-urlencode 'token_type_hint=access_token'
+```
+
+```typescript TypeScript
+async function revokeToken(token: string, hint?: 'access_token' | 'refresh_token') {
+  const body = new URLSearchParams({ token });
+  if (hint) body.set('token_type_hint', hint);
+
+  const response = await fetch('https://identity.mavula.dev/token/revocation', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+
+  if (!response.ok) throw new Error(`Revocation failed: ${response.status}`);
+}
+```
+</CodeGroup>
+
+<Note>
+  When revoking a refresh token, MAVULA also invalidates all access tokens derived from that refresh token. Revoke the refresh token on sign-out rather than just discarding it from client storage — tokens in transit could otherwise be reused until they expire.
+</Note>

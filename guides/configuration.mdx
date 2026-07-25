@@ -1,0 +1,197 @@
+---
+title: "Configure Products, Rules, and Workflows"
+sidebarTitle: "Configuration"
+description: "Create products, attach rules, define entity schemas, and compose workflows to manage all tenant financial configuration through versioned API resources."
+---
+
+All financial behaviour in MAVULA is driven by tenant-level configuration — products define what an account can do, rules govern how transactions are evaluated, entity schemas describe your business data structures, and workflows orchestrate controlled actions around named triggers. Every configuration resource is versioned, tenant-scoped, and mutated through the same API you use for runtime operations. Apply changes in a non-production tenant first, and retain the `X-Correlation-ID` you use for every mutation so you can trace the exact change that caused a downstream effect.
+
+## Configuration surfaces
+
+| Resource | Operations | Purpose |
+|---|---|---|
+| Products | list, read, upsert | Define financial product behaviour and configuration |
+| Product rules | list, create, update, delete, seed defaults | Attach ordered conditions and actions to a product |
+| Entity schemas | list, create, import, export, preset | Define validated business data shapes for your institution |
+| Workflows | list, create, read, execute, preset | Compose controlled steps around named event triggers |
+
+## Change discipline checklist
+
+Before making any configuration change in a tenant, follow these steps in order:
+
+<Steps>
+
+### Export or read the current configuration
+
+Retrieve the existing state of the resource you intend to change. For a full tenant snapshot, use the jurisdiction defaults endpoint:
+
+```bash
+curl -sS https://ledger.mavula.dev/api/products/config \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+
+For a specific product:
+
+```bash
+curl -sS https://ledger.mavula.dev/api/products/PRODUCT_ID \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+
+### Validate the proposed change against the OpenAPI schema
+
+Before sending any mutation, validate your payload against the published OpenAPI schema. The `CreateRule`, `CreateSchema`, and `CreateWorkflow` schemas each enforce strict `additionalProperties: false` constraints — any unknown field is rejected with `400`.
+
+### Use a unique idempotency and correlation identifier
+
+Every mutating request (`POST`, `PUT`) must include a fresh `Idempotency-Key` header and an `X-Correlation-ID` header. Record both values alongside the change you are making. A correlation ID is your primary diagnostic handle if a change needs to be investigated or rolled back.
+
+### Read the resulting resource and version
+
+After a successful mutation, fetch the resource and record its new `version` number. Configuration objects carry an integer version that increments on every change. Store the version in your change log — it is the fastest way to confirm that a specific change was applied.
+
+### Verify downstream projections before exposing the change operationally
+
+Product publication projections at `GET /api/projections/product-publications/{productId}` reflect the eventually-consistent published state of a product. Wait for the projection to reflect your change before enabling the product for live account creation or rule evaluation.
+
+</Steps>
+
+## Create a product
+
+Products are created or updated with a single upsert endpoint. Use `POST /api/products` to create a new product and supply a `type` identifier and a `config` object appropriate to the product type.
+
+```bash
+curl -sS -X POST https://ledger.mavula.dev/api/products \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 4a1b2c3d-5e6f-7890-abcd-ef0123456789" \
+  -H "X-Correlation-ID: a1b2c3d4-e5f6-7890-1234-567890abcdef" \
+  -d '{
+    "type": "current_account",
+    "config": {
+      "currency": "MZN",
+      "overdraft_allowed": false,
+      "interest_bearing": false,
+      "fee_schedule_id": "fee_schedule_standard"
+    }
+  }'
+```
+
+To seed all products for a jurisdiction at once, use the generate endpoint:
+
+```bash
+curl -sS -X POST https://ledger.mavula.dev/api/products/config/generate \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 4cb0de72-2805-4490-8e47-df403c118275" \
+  -d '{"jurisdiction": "MZ"}'
+```
+
+## Add rules to a product
+
+Rules are evaluated in priority order against a product's transactions. Each rule has a `rule_type`, a `condition` expression, an `action` object, an integer `priority`, and an optional list of `applies_to` identifiers that scope the rule to specific contexts.
+
+```bash
+curl -sS -X POST https://ledger.mavula.dev/api/products/PRODUCT_ID/rules \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 7d8e9f0a-1b2c-3d4e-5f6a-7b8c9d0e1f2a" \
+  -H "X-Correlation-ID: 0a1b2c3d-4e5f-6789-abcd-ef0123456789" \
+  -d '{
+    "rule_type": "fee",
+    "condition": "transaction.type == \"WITHDRAWAL\" && transaction.amount > 500.00",
+    "action": {
+      "fee_type": "flat",
+      "fee_amount": "15.00",
+      "fee_currency": "MZN"
+    },
+    "priority": 10,
+    "enabled": true
+  }'
+```
+
+To reset a product's rules to the platform defaults for its type:
+
+```bash
+curl -sS -X POST https://ledger.mavula.dev/api/products/PRODUCT_ID/rules/defaults \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
+  -H "Idempotency-Key: 3c4d5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f"
+```
+
+## Create an entity schema
+
+Schemas define validated data shapes for your institution's business entities. The `entity_name` must be lowercase alphanumeric with underscores; `display_name` is the human-readable label; `fields` is an array of field definitions.
+
+```bash
+curl -sS -X POST https://ledger.mavula.dev/api/schemas \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 9e0f1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b" \
+  -H "X-Correlation-ID: b1c2d3e4-f5a6-7890-bcde-f01234567890" \
+  -d '{
+    "entity_name": "kyc_profile",
+    "display_name": "KYC Profile",
+    "fields": [
+      {
+        "name": "national_id",
+        "type": "STRING",
+        "required": true,
+        "maxLength": 20,
+        "pattern": "^[0-9A-Z]{9,20}$",
+        "description": "Government-issued national identification number"
+      },
+      {
+        "name": "risk_tier",
+        "type": "ENUM",
+        "required": true,
+        "enum_values": ["LOW", "MEDIUM", "HIGH"],
+        "description": "Customer risk classification"
+      },
+      {
+        "name": "date_of_birth",
+        "type": "DATE",
+        "required": false,
+        "description": "Customer date of birth in ISO 8601 format"
+      }
+    ]
+  }'
+```
+
+## Create a workflow
+
+Workflows compose a sequence of steps around a named trigger. Each step specifies an `order`, a `name`, an `action` identifier, `parameters` specific to that action, and an optional `condition` expression that gates step execution.
+
+```bash
+curl -sS -X POST https://ledger.mavula.dev/api/workflows \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 2b3c4d5e-6f7a-8b9c-0d1e-2f3a4b5c6d7e" \
+  -H "X-Correlation-ID: c2d3e4f5-a6b7-8901-cdef-012345678901" \
+  -d '{
+    "trigger": "account.frozen",
+    "steps": [
+      {
+        "order": 1,
+        "name": "notify_compliance",
+        "action": "send_notification",
+        "parameters": {
+          "channel": "email",
+          "template": "account_freeze_compliance_alert",
+          "recipients": ["compliance@institution.mz"]
+        }
+      },
+      {
+        "order": 2,
+        "name": "log_freeze_event",
+        "action": "audit_log",
+        "parameters": {
+          "event_type": "ACCOUNT_FROZEN",
+          "severity": "HIGH"
+        }
+      }
+    ]
+  }'
+```
+
+<Tip>
+  Use the preset endpoints (`GET /api/workflows/presets/loan-approval-notification`, `GET /api/workflows/presets/monthly-fee-charge`) to retrieve ready-made workflow templates, then customise them to your institution's needs before creating your own workflow.
+</Tip>

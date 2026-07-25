@@ -1,0 +1,59 @@
+---
+title: "Workbench API Reference"
+sidebarTitle: "Overview"
+description: "Workbench orchestrates async payment jobs, regulatory batch workflows, and live platform status — all scoped to your MAVULA tenant."
+---
+
+The MAVULA Workbench API is the operational control plane for your tenant. It lets you submit and monitor asynchronous payment jobs, generate and deliver regulatory exports, stage and validate legacy fixed-width imports, and inspect live platform health — all scoped to your tenant identity derived from the Bearer token you present on every request.
+
+## Base URL
+
+All Workbench endpoints share a single base URL:
+
+```
+https://workbench.mavula.dev
+```
+
+## Authentication
+
+Every request must carry a signed Bearer JWT in the `Authorization` header. Workbench derives the tenant context from the token; no additional tenant identifier is required on the path or query string.
+
+```bash
+Authorization: Bearer <your_access_token>
+```
+
+Requests without a valid token receive `401 Unauthorized`. Requests with a valid token that lacks the required permission receive `403 Forbidden`.
+
+## Endpoint groups
+
+The Workbench API is organized into three logical groups. Each group targets a distinct operational concern and carries its own permission scope.
+
+| Group | Endpoints | Required permission | Description |
+|---|---|---|---|
+| **Jobs** | `POST /api/jobs` · `GET /api/jobs/{jobId}` | `workbench.jobs.write` · `workbench.read` | Submit tenant-scoped payment work and read durable execution state, attempt counts, results, and failure details. |
+| **Legacy Interoperability** | `POST /api/regulatory-exports` · `POST /api/legacy-imports` · `GET /api/legacy-batches` · `GET /api/legacy-batches/{batchId}` · `GET /api/legacy-batches/{batchId}/artifact` · `GET /api/legacy-batches/{batchId}/rejections` · `POST /api/regulatory-exports/{batchId}/delivery` | `compliance.manage` | Generate regulatory export files from Ledger Core transactions, stage and validate inbound legacy files, download immutable artifacts, read rejection reports, and record authority delivery evidence. |
+| **Status** | `GET /api/status` · `GET /api/status/queues` · `GET /api/status/schedules` | `workbench.read` | Read overall platform health, per-queue depths and processing rates, and registered schedule configurations. |
+
+## Error responses
+
+All error responses share a consistent JSON envelope:
+
+```json
+{
+  "statusCode": 403,
+  "message": "Insufficient permissions",
+  "error": "Forbidden"
+}
+```
+
+| HTTP status | Meaning |
+|---|---|
+| `400 Bad Request` | The request body or parameters violate the API contract. |
+| `401 Unauthorized` | The Bearer token is missing or invalid. |
+| `403 Forbidden` | The token is valid but the required permission or tenant boundary is not satisfied. |
+| `404 Not Found` | The requested resource does not exist within your tenant scope. |
+| `409 Conflict` | An idempotency key, state machine transition, or delivery reference conflicts with existing state. |
+
+## Idempotency
+
+Mutating endpoints (`POST`) accept an `Idempotency-Key` header (1–255 characters). Replaying a request with the same key and identical body is safe and returns the original response. Replaying with the same key but a different body returns `409 Conflict`. Always generate a unique key per logical operation and persist it before sending the request.

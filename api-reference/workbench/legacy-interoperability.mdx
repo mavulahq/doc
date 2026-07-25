@@ -1,0 +1,467 @@
+---
+title: "Legacy Interoperability: Exports, Imports, and Batches"
+sidebarTitle: "Legacy Batches"
+description: "Generate regulatory export files, stage and validate legacy fixed-width imports, download artifacts, and record authority delivery evidence."
+---
+
+The Legacy Interoperability endpoints bridge Workbench's modern job infrastructure with regulatory reporting formats and fixed-width file interchange. You can request the generation of a regulatory export from Ledger Core transactions, upload inbound fixed-width files for staged validation, download immutable export artifacts for authority delivery, and record a durable delivery receipt once an export has been submitted to a regulator. All six endpoints require the `compliance.manage` permission, and all mutating operations require an `Idempotency-Key` header.
+
+<Warning>
+Legacy imports do **not** create financial mutations. Staging and validating a legacy file through `POST /api/legacy-imports` does **not** post transactions, create accounts, or alter any ledger balance. A validation acceptance only confirms the file is structurally correct. A separate, explicitly approved migration process is required to produce any financial effect.
+</Warning>
+
+---
+
+## POST /api/regulatory-exports
+
+Request the generation of a regulatory export from posted Ledger Core transactions for a defined period. Workbench creates a durable batch receipt immediately and queues the generation work asynchronously.
+
+**Required permission:** `compliance.manage`  
+**Required headers:** `Idempotency-Key`, `X-Correlation-ID`
+
+### Request headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer JWT. Example: `Bearer eyJhbGci...`
+</ParamField>
+
+<ParamField header="Idempotency-Key" type="string" required>
+  Unique key (1–255 characters). Safe to replay with an identical body if the original request timed out. Do not create a second export because you did not receive the first response — replay the same key instead.
+</ParamField>
+
+<ParamField header="X-Correlation-ID" type="string" required>
+  Caller-supplied trace reference (`[A-Za-z0-9._:-]`, 1–128 characters).
+</ParamField>
+
+### Request body
+
+<ParamField body="period_from" type="string (date)" required>
+  Start of the reporting period in `YYYY-MM-DD` format (inclusive).
+</ParamField>
+
+<ParamField body="period_to" type="string (date)" required>
+  End of the reporting period in `YYYY-MM-DD` format (inclusive).
+</ParamField>
+
+<ParamField body="legal_basis_code" type="string" required>
+  Regulatory legal basis code (1–64 characters). Example: `MZ-AML-14-2023-ART-43`.
+</ParamField>
+
+<ParamField body="retention_until" type="string (date)" required>
+  Date until which the export must be retained. Must satisfy at least the required ten-year retention period from the report date.
+</ParamField>
+
+<ParamField body="generated_at" type="string (date-time)">
+  Optional override for the generation timestamp. Defaults to the server time of acceptance.
+</ParamField>
+
+### Response — 201 Created
+
+Returns a `LegacyBatchReceipt`. See [Batch receipt fields](#batch-receipt-response-fields) below.
+
+### Example
+
+<CodeGroup>
+
+```bash Request a regulatory export
+curl -sS -X POST https://workbench.mavula.dev/api/regulatory-exports \
+  -H "Authorization: Bearer $COMPLIANCE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 0e03ef93-09e0-413f-b49a-e59f93fa881f" \
+  -H "X-Correlation-ID: bd351e46-e436-4dd2-b9de-75e940629961" \
+  -d '{
+    "period_from": "2026-07-01",
+    "period_to": "2026-07-31",
+    "legal_basis_code": "MZ-AML-14-2023-ART-43",
+    "retention_until": "2036-07-31"
+  }'
+```
+
+```json 201 Response
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "tenant_id": "tenant_mz_001",
+  "institution_id": "inst_mz_001",
+  "direction": "EXPORT",
+  "contract_id": "legacy.regulatory_transaction_export@1",
+  "state": "QUEUED",
+  "correlation_id": "bd351e46-e436-4dd2-b9de-75e940629961",
+  "attempts": 0,
+  "max_attempts": 3,
+  "created_at": "2026-08-01T07:00:00Z",
+  "updated_at": "2026-08-01T07:00:00Z"
+}
+```
+
+</CodeGroup>
+
+---
+
+## POST /api/legacy-imports
+
+Stage an inbound fixed-width file and queue it for validation. The file is stored durably and a batch receipt is returned immediately. Validation results, including deterministic rejections, are available once the batch reaches `VALIDATED` or `REJECTED` state.
+
+**Required permission:** `compliance.manage`  
+**Required headers:** `Idempotency-Key`, `X-Correlation-ID`  
+**Content-Type:** `multipart/form-data`
+
+### Request headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer JWT.
+</ParamField>
+
+<ParamField header="Idempotency-Key" type="string" required>
+  Unique key (1–255 characters). Safe to replay if the upload was interrupted.
+</ParamField>
+
+<ParamField header="X-Correlation-ID" type="string" required>
+  Caller-supplied trace reference (`[A-Za-z0-9._:-]`, 1–128 characters).
+</ParamField>
+
+### Request body (multipart/form-data)
+
+<ParamField body="file" type="binary" required>
+  The US-ASCII fixed-width file to stage. Maximum size: **10 MiB**. Maximum detail records: **5,000**.
+</ParamField>
+
+### Response — 201 Created
+
+Returns a `LegacyBatchReceipt`. See [Batch receipt fields](#batch-receipt-response-fields) below.
+
+### Example
+
+<CodeGroup>
+
+```bash Stage a legacy import
+curl -sS -X POST https://workbench.mavula.dev/api/legacy-imports \
+  -H "Authorization: Bearer $COMPLIANCE_TOKEN" \
+  -H "Idempotency-Key: 7f3a9c11-48de-4b2a-b993-12fa0e6d3b87" \
+  -H "X-Correlation-ID: import-correlation-001" \
+  -F "file=@transactions_2026_07.txt"
+```
+
+</CodeGroup>
+
+---
+
+## GET /api/legacy-batches
+
+List all durable export and import batch receipts scoped to your tenant. Use this endpoint to locate a receipt when the client did not persist the original response.
+
+**Required permission:** `compliance.manage`
+
+### Response — 200 OK
+
+Returns an array of `LegacyBatchReceipt` objects. See [Batch receipt fields](#batch-receipt-response-fields) below.
+
+### Example
+
+<CodeGroup>
+
+```bash List all legacy batches
+curl -sS https://workbench.mavula.dev/api/legacy-batches \
+  -H "Authorization: Bearer $COMPLIANCE_TOKEN"
+```
+
+</CodeGroup>
+
+---
+
+## GET /api/legacy-batches/{batchId}
+
+Read the full durable state, attempt count, record totals, delivery evidence, and failure reason for a specific batch.
+
+**Required permission:** `compliance.manage`
+
+### Path parameters
+
+<ParamField path="batchId" type="string (uuid)" required>
+  The batch identifier returned when the export or import was created.
+</ParamField>
+
+### Response — 200 OK
+
+Returns a `LegacyBatchReceipt`. See [Batch receipt fields](#batch-receipt-response-fields) below.
+
+### Example
+
+<CodeGroup>
+
+```bash Read a specific batch
+curl -sS https://workbench.mavula.dev/api/legacy-batches/a1b2c3d4-e5f6-7890-abcd-ef1234567890 \
+  -H "Authorization: Bearer $COMPLIANCE_TOKEN"
+```
+
+</CodeGroup>
+
+---
+
+## GET /api/legacy-batches/{batchId}/artifact
+
+Download the immutable US-ASCII fixed-width export artifact. Only call this endpoint after the batch has reached `GENERATED` or later state. Verify the `ETag` header and the embedded trailer checksum before delivering the file to any regulatory authority.
+
+**Required permission:** `compliance.manage`
+
+### Path parameters
+
+<ParamField path="batchId" type="string (uuid)" required>
+  The batch identifier of a successfully generated export.
+</ParamField>
+
+### Response — 200 OK
+
+Returns the artifact as `text/plain` binary content with the following headers:
+
+<ResponseField name="ETag" type="string">
+  SHA-256 digest of the complete artifact. Verify this matches the `content_sha256` field on the batch receipt before delivery.
+</ResponseField>
+
+<ResponseField name="Content-Disposition" type="string">
+  Server-generated safe filename for the artifact.
+</ResponseField>
+
+<ResponseField name="Content-Length" type="integer">
+  Byte length of the artifact body.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash Download the export artifact
+curl -sS -O -J \
+  https://workbench.mavula.dev/api/legacy-batches/a1b2c3d4-e5f6-7890-abcd-ef1234567890/artifact \
+  -H "Authorization: Bearer $COMPLIANCE_TOKEN"
+```
+
+</CodeGroup>
+
+---
+
+## GET /api/legacy-batches/{batchId}/rejections
+
+Read the deterministic rejection report for a batch. Each rejection entry identifies the specific record number, field name, rejection code, and an optional reference value to support precise correction.
+
+**Required permission:** `compliance.manage`
+
+### Path parameters
+
+<ParamField path="batchId" type="string (uuid)" required>
+  The batch identifier of the export or import to inspect.
+</ParamField>
+
+### Response — 200 OK
+
+<ResponseField name="batch_id" type="string (uuid)" required>
+  The batch this report belongs to.
+</ResponseField>
+
+<ResponseField name="rejections" type="array" required>
+  Array of rejection entries.
+
+  <Expandable title="Rejection entry fields">
+    <ResponseField name="record" type="integer" required>
+      One-based record number in the source file where the rejection occurred.
+    </ResponseField>
+    <ResponseField name="field" type="string" required>
+      The field name or path that caused the rejection.
+    </ResponseField>
+    <ResponseField name="code" type="string" required>
+      Machine-readable rejection code.
+    </ResponseField>
+    <ResponseField name="reference" type="string">
+      Optional human-readable reference value to aid in correction.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash Read rejection report
+curl -sS \
+  https://workbench.mavula.dev/api/legacy-batches/a1b2c3d4-e5f6-7890-abcd-ef1234567890/rejections \
+  -H "Authorization: Bearer $COMPLIANCE_TOKEN"
+```
+
+```json 200 Response
+{
+  "batch_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "rejections": [
+    {
+      "record": 42,
+      "field": "account_number",
+      "code": "INVALID_FORMAT",
+      "reference": "ACC-000042"
+    },
+    {
+      "record": 107,
+      "field": "amount",
+      "code": "VALUE_OUT_OF_RANGE",
+      "reference": "-500"
+    }
+  ]
+}
+```
+
+</CodeGroup>
+
+---
+
+## POST /api/regulatory-exports/{batchId}/delivery
+
+Mark a generated export as delivered to a regulatory authority and retain the external authority reference as durable evidence. Once recorded, the batch moves to `DELIVERED` state. This operation is idempotent — replaying with the same idempotency key and body is safe.
+
+**Required permission:** `compliance.manage`  
+**Required headers:** `Idempotency-Key`, `X-Correlation-ID`
+
+### Path parameters
+
+<ParamField path="batchId" type="string (uuid)" required>
+  The batch identifier of the export being marked as delivered.
+</ParamField>
+
+### Request headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer JWT.
+</ParamField>
+
+<ParamField header="Idempotency-Key" type="string" required>
+  Unique key (1–255 characters).
+</ParamField>
+
+<ParamField header="X-Correlation-ID" type="string" required>
+  Caller-supplied trace reference (`[A-Za-z0-9._:-]`, 1–128 characters).
+</ParamField>
+
+### Request body
+
+<ParamField body="authority_reference" type="string" required>
+  The external reference assigned by the receiving regulatory authority (1–255 characters). This is retained as the delivery evidence record.
+</ParamField>
+
+<ParamField body="delivered_at" type="string (date-time)">
+  The timestamp at which delivery to the authority occurred. Defaults to the server time of the request if omitted.
+</ParamField>
+
+### Response — 201 Created
+
+Returns the updated `LegacyBatchReceipt` with `state: "DELIVERED"` and the `authority_reference` and `delivered_at` fields populated.
+
+### Example
+
+<CodeGroup>
+
+```bash Record authority delivery
+curl -sS -X POST \
+  https://workbench.mavula.dev/api/regulatory-exports/a1b2c3d4-e5f6-7890-abcd-ef1234567890/delivery \
+  -H "Authorization: Bearer $COMPLIANCE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 076a329b-84f5-4f58-99ef-04ac14f3a343" \
+  -H "X-Correlation-ID: delivery-correlation-001" \
+  -d '{
+    "authority_reference": "BM-REPORT-2026-07-001",
+    "delivered_at": "2026-08-02T09:00:00Z"
+  }'
+```
+
+```json 201 Response
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "tenant_id": "tenant_mz_001",
+  "institution_id": "inst_mz_001",
+  "direction": "EXPORT",
+  "contract_id": "legacy.regulatory_transaction_export@1",
+  "state": "DELIVERED",
+  "correlation_id": "delivery-correlation-001",
+  "authority_reference": "BM-REPORT-2026-07-001",
+  "delivered_at": "2026-08-02T09:00:00Z",
+  "attempts": 1,
+  "max_attempts": 3,
+  "created_at": "2026-08-01T07:00:00Z",
+  "updated_at": "2026-08-02T09:00:05Z"
+}
+```
+
+</CodeGroup>
+
+---
+
+## Batch receipt response fields
+
+All batch endpoints return a `LegacyBatchReceipt` with the following fields:
+
+<ResponseField name="id" type="string (uuid)" required>
+  The durable batch identifier.
+</ResponseField>
+
+<ResponseField name="tenant_id" type="string" required>
+  Tenant derived from the Bearer token.
+</ResponseField>
+
+<ResponseField name="institution_id" type="string" required>
+  Institution the batch is associated with.
+</ResponseField>
+
+<ResponseField name="direction" type="string" required>
+  `EXPORT` for regulatory exports; `IMPORT` for legacy imports.
+</ResponseField>
+
+<ResponseField name="contract_id" type="string" required>
+  Fixed contract identifier: `legacy.regulatory_transaction_export@1`.
+</ResponseField>
+
+<ResponseField name="state" type="string" required>
+  Current lifecycle state. One of: `QUEUED`, `PROCESSING`, `GENERATED`, `VALIDATED`, `REJECTED`, `FAILED`, `DELIVERED`.
+</ResponseField>
+
+<ResponseField name="correlation_id" type="string" required>
+  The `X-Correlation-ID` value from the originating request.
+</ResponseField>
+
+<ResponseField name="attempts" type="integer" required>
+  Number of execution attempts made so far.
+</ResponseField>
+
+<ResponseField name="max_attempts" type="integer" required>
+  Maximum execution attempts before the batch moves to `FAILED`.
+</ResponseField>
+
+<ResponseField name="source_count" type="integer">
+  Number of source Ledger Core records included in the export, once known.
+</ResponseField>
+
+<ResponseField name="record_count" type="integer">
+  Number of detail records written to the artifact, once known.
+</ResponseField>
+
+<ResponseField name="total_amount_minor" type="string">
+  Total amount across all records in centavos (string-encoded integer).
+</ResponseField>
+
+<ResponseField name="content_sha256" type="string">
+  Lowercase hex SHA-256 digest of the generated artifact. Compare against the `ETag` response header when downloading.
+</ResponseField>
+
+<ResponseField name="authority_reference" type="string">
+  The external authority reference recorded on delivery.
+</ResponseField>
+
+<ResponseField name="delivered_at" type="string (date-time)">
+  Timestamp of authority delivery, once recorded.
+</ResponseField>
+
+<ResponseField name="failure_reason" type="string">
+  Human-readable description of the terminal failure, if the batch reached `FAILED` state.
+</ResponseField>
+
+<ResponseField name="created_at" type="string (date-time)" required>
+  ISO 8601 timestamp when the batch receipt was created.
+</ResponseField>
+
+<ResponseField name="updated_at" type="string (date-time)" required>
+  ISO 8601 timestamp of the most recent state change.
+</ResponseField>

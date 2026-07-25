@@ -1,20 +1,62 @@
 ---
-title: "Introduction"
-description: "Welcome to your project"
+title: "MAVULA Developer Platform"
+sidebarTitle: "Home"
+description: "MAVULA provides institutional-grade APIs for financial operations—identity, ledger management, and payment orchestration in one platform."
 ---
 
-Write a short description of your product here. What it does, who it's for, and what they can accomplish with it.
+MAVULA gives your institution a unified API surface for financial operations. Authenticate operators and services through Identity Access, manage accounts and ledger state through Ledger Core, and orchestrate asynchronous payment jobs through Workbench—all with tenant isolation, idempotency guarantees, and maker-checker controls built in.
 
-<Tip>
-  Ready to make this your own? Start by editing this page. Update your `docs.json` file to customize your site. Then fill out the [Quickstart](/quickstart) page.
-</Tip>
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Exchange your first token, create an account, and read a balance in four steps.
+  </Card>
+  <Card title="Authentication" icon="lock" href="/authentication">
+    Set up OAuth 2.0 with PKCE or client credentials for your operators and services.
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/identity-access/overview">
+    Explore all three API surfaces: Identity Access, Ledger Core, and Workbench.
+  </Card>
+  <Card title="Guides" icon="book-open" href="/guides/account-setup">
+    Step-by-step walkthroughs for accounts, adjustments, jobs, and more.
+  </Card>
+</CardGroup>
 
-<Card title="Quickstart" icon="rocket" href="/quickstart">
-  This card links to the quickstart page in your project.
-</Card>
-<Card title="Components" icon="puzzle-piece" href="https://mintlify.com/docs/components">
-  Add cards, callouts, steps, tabs, and more to design and structure your pages.
-</Card>
-<Card title="Settings" icon="gear" href="https://mintlify.com/docs/organize/settings">
-  Set your site name, branding, and navigation in the `docs.json` file.
-</Card>
+## Platform overview
+
+MAVULA separates financial concerns across three distinct API services:
+
+<CardGroup cols={3}>
+  <Card title="Identity Access" icon="user-shield" href="/api-reference/identity-access/overview">
+    OAuth 2.0 and OpenID Connect. Issues JWTs carrying tenant, role, and permission claims.
+    Base URL: `identity.mavula.dev`
+  </Card>
+  <Card title="Ledger Core" icon="building-columns" href="/api-reference/ledger-core/overview">
+    Financial source of truth. Accounts, balances, adjustments, products, and projections.
+    Base URL: `ledger.mavula.dev`
+  </Card>
+  <Card title="Workbench" icon="gears" href="/api-reference/workbench/overview">
+    Async job orchestration, legacy interoperability, and platform status.
+    Base URL: `workbench.mavula.dev`
+  </Card>
+</CardGroup>
+
+## Get started
+
+<Steps>
+  <Step title="Get a token">
+    Use the authorization code + PKCE flow (for human operators) or client credentials (for backend services) to obtain a bearer token from Identity Access.
+  </Step>
+  <Step title="Verify your identity">
+    Call `GET /api/v1/me` to confirm your token's tenant, roles, and permissions before making financial calls.
+  </Step>
+  <Step title="Make your first financial call">
+    Create an account in Ledger Core using your bearer token and a unique `Idempotency-Key`.
+  </Step>
+  <Step title="Explore the guides">
+    Follow the hands-on guides for account lifecycle management, financial adjustments, payment jobs, and configuration.
+  </Step>
+</Steps>
+
+<Note>
+  All mutating requests to Ledger Core and Workbench require an `Idempotency-Key` header. Always send a `X-Correlation-ID` header on every integration call to trace requests across service boundaries.
+</Note>

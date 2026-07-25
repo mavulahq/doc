@@ -1,0 +1,154 @@
+---
+title: "OpenID Provider Metadata and JWKS Endpoints"
+sidebarTitle: "OIDC Metadata"
+description: "Discover MAVULA Identity Access endpoint URLs, supported grants, and fetch the PS256 public signing keys used to verify all issued JWTs."
+---
+
+MAVULA Identity Access implements the OpenID Connect Discovery specification, which means every endpoint URL, supported grant type, signing algorithm, and authentication method it supports is published in a single machine-readable document. Before building a token validation library or configuring an OAuth client, you should read this metadata document at startup rather than hard-coding endpoint URLs. The `/jwks` endpoint serves the public signing keys that resource servers use to verify the signature of every JWT issued by this API.
+
+---
+
+## GET /.well-known/openid-configuration
+
+Returns the OpenID Provider metadata document for `https://identity.mavula.dev`. The response is a standard JSON object defined by [OpenID Connect Discovery 1.0](https://openid.net/specs/openid-connect-discovery-1_0.html). No authentication is required.
+
+<CodeGroup>
+```bash cURL
+curl -sS https://identity.mavula.dev/.well-known/openid-configuration
+```
+</CodeGroup>
+
+### Response `200 OK`
+
+<ResponseField name="issuer" type="string" required>
+  The canonical identifier for this authorization server. Always `https://identity.mavula.dev`. Validate the `iss` claim in every JWT against this value.
+</ResponseField>
+
+<ResponseField name="authorization_endpoint" type="string" required>
+  The URL to which you redirect the user agent to begin the Authorization Code + PKCE flow. Always `https://identity.mavula.dev/auth`.
+</ResponseField>
+
+<ResponseField name="token_endpoint" type="string" required>
+  The URL used to exchange authorization codes, refresh tokens, or client credentials for access tokens. Always `https://identity.mavula.dev/token`.
+</ResponseField>
+
+<ResponseField name="jwks_uri" type="string" required>
+  The URL of the public JSON Web Key Set used to verify token signatures. Always `https://identity.mavula.dev/jwks`.
+</ResponseField>
+
+<ResponseField name="revocation_endpoint" type="string">
+  The URL used to revoke access and refresh tokens. Always `https://identity.mavula.dev/token/revocation`.
+</ResponseField>
+
+<ResponseField name="response_types_supported" type="string[]" required>
+  The response types this server supports. MAVULA supports `["code"]` only — the Authorization Code flow.
+</ResponseField>
+
+<ResponseField name="grant_types_supported" type="string[]">
+  The grant types this server supports: `authorization_code`, `refresh_token`, and `client_credentials`.
+</ResponseField>
+
+<ResponseField name="token_endpoint_auth_methods_supported" type="string[]">
+  Methods accepted at the token endpoint for authenticating confidential clients: `client_secret_basic` and `client_secret_post`.
+</ResponseField>
+
+<ResponseField name="id_token_signing_alg_values_supported" type="string[]">
+  Signing algorithms supported for ID tokens. MAVULA uses `["PS256"]` exclusively.
+</ResponseField>
+
+### Response example
+
+```json
+{
+  "issuer": "https://identity.mavula.dev",
+  "authorization_endpoint": "https://identity.mavula.dev/auth",
+  "token_endpoint": "https://identity.mavula.dev/token",
+  "jwks_uri": "https://identity.mavula.dev/jwks",
+  "revocation_endpoint": "https://identity.mavula.dev/token/revocation",
+  "response_types_supported": ["code"],
+  "grant_types_supported": [
+    "authorization_code",
+    "refresh_token",
+    "client_credentials"
+  ],
+  "token_endpoint_auth_methods_supported": [
+    "client_secret_basic",
+    "client_secret_post"
+  ],
+  "id_token_signing_alg_values_supported": ["PS256"]
+}
+```
+
+<Note>
+  The `additionalProperties` constraint on this object is intentionally open — future versions of MAVULA Identity Access may add fields to the metadata document without a breaking change. Your parser should tolerate unknown fields.
+</Note>
+
+---
+
+## GET /jwks
+
+Returns the JSON Web Key Set (JWKS) containing the public RSA keys that MAVULA uses to sign all JWTs. Resource servers must fetch and cache these keys to perform local signature verification on every inbound Bearer token. No authentication is required.
+
+<CodeGroup>
+```bash cURL
+curl -sS https://identity.mavula.dev/jwks
+```
+</CodeGroup>
+
+### Response `200 OK`
+
+<ResponseField name="keys" type="object[]" required>
+  An array of JSON Web Keys. Each key object describes one active PS256 signing key.
+
+  <Expandable title="Key object fields">
+    <ResponseField name="kty" type="string" required>
+      Key type. Always `RSA` for MAVULA signing keys.
+    </ResponseField>
+
+    <ResponseField name="kid" type="string" required>
+      Key identifier. Matches the `kid` header in the JWT you are verifying. Use this to select the correct key when multiple entries are present during a key rotation.
+    </ResponseField>
+
+    <ResponseField name="use" type="string" required>
+      Intended use. Always `sig` — these keys are for signature verification only, never encryption.
+    </ResponseField>
+
+    <ResponseField name="alg" type="string" required>
+      Algorithm. Always `PS256` (RSASSA-PSS using SHA-256).
+    </ResponseField>
+
+    <ResponseField name="n" type="string" required>
+      The Base64URL-encoded RSA modulus component of the public key.
+    </ResponseField>
+
+    <ResponseField name="e" type="string" required>
+      The Base64URL-encoded RSA public exponent. Typically `AQAB` (65537).
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Response example
+
+```json
+{
+  "keys": [
+    {
+      "kty": "RSA",
+      "kid": "mavula-ps256-2024-01",
+      "use": "sig",
+      "alg": "PS256",
+      "n": "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAt
+            VT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn6
+            4tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_F
+            DW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n9
+            1CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINH
+            aQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw",
+      "e": "AQAB"
+    }
+  ]
+}
+```
+
+<Warning>
+  Cache the JWKS response according to standard HTTP cache headers. Do not re-fetch the key set on every token validation — this will create unnecessary latency and may result in rate limiting. However, implement a fallback that re-fetches the JWKS when you encounter a JWT signed with an unknown `kid`, to handle key rotations gracefully.
+</Warning>

@@ -1,72 +1,95 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mintlify Starter Kit",
+  "name": "MAVULA",
+  "theme": "luma",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#071a45"
   },
   "favicon": "/favicon.svg",
   "navigation": {
-    "pages": [
+    "tabs": [
       {
-        "group": "Getting Started",
-        "pages": [
-          "index",
-          "quickstart"
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication",
+              "roles-permissions",
+              "request-reliability"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/tenant-isolation",
+              "concepts/idempotency",
+              "concepts/errors",
+              "concepts/projections"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/account-setup",
+              "guides/account-lifecycle",
+              "guides/financial-adjustments",
+              "guides/payment-jobs",
+              "guides/configuration",
+              "guides/legacy-batches"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "resources/code-examples",
+              "resources/limitations"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Identity Access",
+            "pages": [
+              "api-reference/identity-access/overview",
+              "api-reference/identity-access/openid-configuration",
+              "api-reference/identity-access/token",
+              "api-reference/identity-access/identity"
+            ]
+          },
+          {
+            "group": "Ledger Core",
+            "pages": [
+              "api-reference/ledger-core/overview",
+              "api-reference/ledger-core/accounts",
+              "api-reference/ledger-core/account-lifecycle",
+              "api-reference/ledger-core/financial-adjustments",
+              "api-reference/ledger-core/configuration",
+              "api-reference/ledger-core/projections"
+            ]
+          },
+          {
+            "group": "Workbench",
+            "pages": [
+              "api-reference/workbench/overview",
+              "api-reference/workbench/jobs",
+              "api-reference/workbench/legacy-interoperability",
+              "api-reference/workbench/status"
+            ]
+          }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://app.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "chatgpt",
-      "claude",
-      "perplexity",
-      "mcp",
-      "cursor",
-      "vscode"
     ]
   },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/mavulahq"
     }
   }
 }

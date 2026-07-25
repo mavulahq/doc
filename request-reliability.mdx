@@ -1,0 +1,109 @@
+---
+title: "Request Reliability: Headers, Retries, and Idempotency"
+sidebarTitle: "Reliability"
+description: "Make MAVULA integrations production-safe with required headers, a clear retry policy, and exponential backoff for transient failures."
+---
+
+Building a reliable integration with MAVULA requires three habits: sending the right headers on every request, distinguishing retryable errors from non-retryable ones, and reusing idempotency keys correctly when you do retry. These three practices together ensure that your application handles transient infrastructure failures gracefully without ever producing duplicate financial effects. This page covers each in turn with concrete examples you can adapt directly.
+
+## Required headers
+
+Every call to a MAVULA API endpoint should include the following headers. Omitting required headers will produce a `400` or `401` response that is not retryable.
+
+| Header | Applies to | Requirement |
+|---|---|---|
+| `Authorization` | All protected operations | Bearer access token issued by Identity Access |
+| `Idempotency-Key` | Mutating operations (`POST`, `PATCH`, `PUT`, `DELETE`) | A stable UUID representing one logical command |
+| `X-Correlation-ID` | Every integration call | A stable trace identifier to correlate the request across service boundaries |
+| `Content-Type` | Requests with a body | `application/json`, or the media type explicitly required by the endpoint |
+
+A fully decorated mutating request looks like this:
+
+```http
+POST /api/accounts HTTP/1.1
+Host: ledger.mavula.dev
+Authorization: Bearer eyJ...
+Idempotency-Key: 76b05d81-c975-4daf-b054-72b2eb3a749a
+X-Correlation-ID: 406d8359-a53a-4d2a-a908-628798ece3b3
+Content-Type: application/json
+```
+
+<Tip>
+  Generate your `X-Correlation-ID` once at the start of a logical user action or job run, and propagate the same value through every API call that belongs to that operation. This makes it possible to reconstruct a full request chain from a single identifier when investigating an incident.
+</Tip>
+
+### Idempotency key rules
+
+Generate a fresh UUID v4 for each new logical command. The key must be stable for the lifetime of that command: if you retry, send the exact same key with the exact same method, path, and request body.
+
+<Warning>
+  Do **not** generate a new idempotency key when retrying. Doing so causes Ledger Core to treat the retry as a new command, which can create duplicate accounts, duplicate transactions, or conflicting state changes. Reuse the key; let MAVULA deduplicate the effect.
+</Warning>
+
+If you send the same idempotency key with a different method, path, or body, MAVULA will return a `409 Conflict`. This is a non-retryable error — inspect the conflict, correct your request, and generate a new key for the corrected command.
+
+## Retry policy
+
+Not all errors are equal. Some are caused by transient infrastructure conditions and can be safely retried; others are deterministic rejections that will produce the same response no matter how many times you retry.
+
+| Result | Retry? | Action |
+|---|---|---|
+| Network timeout before any response is received | Yes | Retry with the **same** idempotency key |
+| `429 Too Many Requests` | Yes | Respect the `Retry-After` response header; add random jitter |
+| `500 Internal Server Error` | Yes | Exponential backoff with a bounded attempt count |
+| `502 Bad Gateway` | Yes | Exponential backoff with a bounded attempt count |
+| `503 Service Unavailable` | Yes | Exponential backoff with a bounded attempt count |
+| `504 Gateway Timeout` | Yes | Exponential backoff with a bounded attempt count |
+| `400 Bad Request` | No | Correct the request payload or query parameters |
+| `401 Unauthorized` | No | Obtain a new access token; check token expiry and audience |
+| `403 Forbidden` | No | Review role and permission assignments; do not escalate credentials automatically |
+| `404 Not Found` | No | Verify the resource identifier; check it was created successfully |
+| `409 Conflict` | No | Inspect idempotency key usage or conflicting state; resolve before retrying with a new key |
+| Accepted asynchronous job (`202`) | Poll | Read the status resource on Workbench; do not resubmit the job |
+
+<Note>
+  A `401` after a previously successful call usually means your access token has expired. Refresh it using your `refresh_token` grant, then replay the request. Do not retry a `401` without first obtaining a new token — the same expired token will produce the same `401` every time.
+</Note>
+
+## Exponential backoff retry loop
+
+The following TypeScript example implements the retry policy described above. It retries on the five retryable status codes with exponential backoff and a small random jitter, exhausts a fixed attempt budget, and throws immediately on non-retryable errors.
+
+```ts
+const retryable = new Set([429, 500, 502, 503, 504]);
+
+for (let attempt = 0; attempt < 4; attempt += 1) {
+  const response = await fetch(url, { method: 'POST', headers, body });
+
+  if (response.ok) return response.json();
+
+  if (!retryable.has(response.status)) throw await response.json();
+
+  await new Promise((resolve) =>
+    setTimeout(resolve, 250 * 2 ** attempt + Math.random() * 100)
+  );
+}
+
+throw new Error('retry budget exhausted');
+```
+
+The backoff schedule this produces:
+
+| Attempt | Base delay | Max jitter | Approximate wait |
+|---|---|---|---|
+| 0 → 1 | 250 ms | 100 ms | ~250–350 ms |
+| 1 → 2 | 500 ms | 100 ms | ~500–600 ms |
+| 2 → 3 | 1 000 ms | 100 ms | ~1 000–1 100 ms |
+| 3 → fail | — | — | Throw after four attempts |
+
+Adjust the base delay and attempt count to match your latency budget and the criticality of the operation. For time-sensitive user-facing calls you might cap at three attempts with a tighter jitter window; for background batch jobs you might allow more attempts with a larger backoff ceiling.
+
+<Tip>
+  For `429` responses, always prefer the `Retry-After` header value over your computed backoff. MAVULA sets `Retry-After` to the number of seconds before the rate limit resets. Ignoring it and retrying early will continue to produce `429` responses and consume your retry budget.
+</Tip>
+
+## Asynchronous jobs
+
+Some Workbench operations return `202 Accepted` immediately and complete asynchronously. For these, the correct pattern is to poll the status resource returned in the response — do not resubmit the original request. Resubmission with a new idempotency key will create a second job; resubmission with the same key will return the original `202` receipt.
+
+See [Idempotency and retries](/concepts/idempotency) for the full receipt and conflict semantics, including how MAVULA distinguishes between a duplicate submission and a genuine new command.

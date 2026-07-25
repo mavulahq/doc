@@ -1,0 +1,123 @@
+---
+title: "Create Accounts and Read Balances"
+sidebarTitle: "Account Setup"
+description: "Create a tenant-scoped account with a product and currency, then read its live balance and paginate its statement using cursor-based pagination."
+---
+
+Every financial record in MAVULA starts with an account. An account belongs to a customer, is governed by a product, and holds a balance denominated in a single ISO 4217 currency. The steps below walk you through creating an account, reading its current balance, and paging through its statement. You need the `finance.write` permission to create and the `finance.read` permission to inspect.
+
+<Steps>
+
+### Create the account
+
+Send a `POST` request to `https://ledger.mavula.dev/api/accounts`. The four required body fields are `customer_id`, `product_id`, `name`, and `currency`. The currency must be an uppercase ISO 4217 code (for example, `MZN`). Include an `Idempotency-Key` header so that retrying a failed request never creates a duplicate account.
+
+```bash
+curl -sS -X POST https://ledger.mavula.dev/api/accounts \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 56a1f534-9054-4dcf-82cb-55ebc102da18" \
+  -H "X-Correlation-ID: 9ab719e7-7aa6-4cc5-9d03-01eef511262b" \
+  -d '{
+    "customer_id": "customer_001",
+    "product_id": "current_account_mzn",
+    "name": "Operating account",
+    "currency": "MZN"
+  }'
+```
+
+A successful request returns `201 Created` with the full account object:
+
+```json
+{
+  "id": "acc_01j9z2kv8x0000000000000001",
+  "customer_id": "customer_001",
+  "product_id": "current_account_mzn",
+  "name": "Operating account",
+  "currency": "MZN",
+  "status": "ACTIVE",
+  "balance": "0.00",
+  "version": 1,
+  "created_at": "2026-07-15T08:00:00Z",
+  "updated_at": "2026-07-15T08:00:00Z"
+}
+```
+
+<Note>
+  Record the `id` returned in the response. You will use it as the `accountId` path parameter in every subsequent request for this account.
+</Note>
+
+### Read the current balance
+
+Once the account exists, you can retrieve a lightweight balance snapshot at any time. Replace `ACCOUNT_ID` with the `id` from the previous step.
+
+```bash
+curl -sS https://ledger.mavula.dev/api/accounts/ACCOUNT_ID/balance \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+
+The response contains the account identifier, the current `balance` as a decimal string, and the ISO 4217 `currency`:
+
+```json
+{
+  "account_id": "acc_01j9z2kv8x0000000000000001",
+  "balance": "12500.00",
+  "currency": "MZN",
+  "version": 7
+}
+```
+
+<Tip>
+  Monetary amounts are always returned as decimal strings (for example, `"12500.00"`). Never parse them with binary floating-point arithmetic — use a decimal library such as `decimal.js` (JavaScript), `decimal` (Python), or `java.math.BigDecimal` (Java) to avoid rounding errors.
+</Tip>
+
+### Page through the statement
+
+The statement endpoint returns an ordered list of account entries — debits, credits, reversals, and corrections — along with the resulting balance after each posting. Use the `limit` query parameter (maximum `100`) to control page size. Omit `cursor` on the first request.
+
+```bash
+curl -sS "https://ledger.mavula.dev/api/accounts/ACCOUNT_ID/statement?limit=100" \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+
+The response follows a cursor-based pagination envelope:
+
+```json
+{
+  "items": [
+    {
+      "id": "entry_01j9z2kv8x0000000000000042",
+      "account_id": "acc_01j9z2kv8x0000000000000001",
+      "journal_entry_id": "je_01j9z2kv8x0000000000000010",
+      "posting_key": "LOAN_DISBURSEMENT",
+      "entry_type": "POSTING",
+      "direction": "CREDIT",
+      "amount": "12500.00",
+      "currency": "MZN",
+      "balance_after": "12500.00",
+      "posted_at": "2026-07-15T09:00:00Z"
+    }
+  ],
+  "next_cursor": "eyJpZCI6ImVudHJ5XzAxajl6MmsifQ"
+}
+```
+
+When `next_cursor` is present in the response, pass its value as the `cursor` query parameter on your next request. Continue until `next_cursor` is absent or `null`, which signals the end of the statement.
+
+```bash
+curl -sS "https://ledger.mavula.dev/api/accounts/ACCOUNT_ID/statement?limit=100&cursor=eyJpZCI6ImVudHJ5XzAxajl6MmsifQ" \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+
+You can also narrow the statement to a specific time window using the `from` and `to` query parameters, which accept ISO 8601 date-time values.
+
+```bash
+curl -sS "https://ledger.mavula.dev/api/accounts/ACCOUNT_ID/statement?from=2026-07-01T00:00:00Z&to=2026-07-31T23:59:59Z&limit=50" \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+
+</Steps>
+
+<Note>
+  Statement entries include the `direction` (`DEBIT` or `CREDIT`), `amount`, `currency`, `balance_after`, and `posted_at` timestamp. For reversals and corrections, the `entry_type` field identifies the nature of the entry so you can distinguish original postings from adjustments in your reconciliation logic.
+</Note>

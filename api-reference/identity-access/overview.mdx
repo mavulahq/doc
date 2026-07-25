@@ -1,0 +1,79 @@
+---
+title: "Identity Access API Reference"
+sidebarTitle: "Overview"
+description: "OAuth 2.0 and OpenID Connect authorization surface for MAVULA. Issue, inspect, and revoke tokens that carry institutional identity claims."
+---
+
+The Identity Access API is the single authorization surface for all MAVULA principals — human operators and institutional backend services alike. Every access token it issues is a PS256-signed JWT carrying tenant, institution, branch, role, and permission claims derived from persisted identity state. You use these tokens to authenticate against Ledger Core, Workbench, and every other protected MAVULA API. All token validation is done locally by resource servers using the public keys published at `/jwks`, so no round-trip to the Identity Access API is required on each request.
+
+## Base URL
+
+All Identity Access endpoints are served from a single host:
+
+```text
+https://identity.mavula.dev
+```
+
+## Available endpoints
+
+The API exposes six endpoints across three functional groups.
+
+| Method | Path | Group | Description |
+|--------|------|-------|-------------|
+| `GET` | `/.well-known/openid-configuration` | Discovery | Returns OpenID Provider metadata — endpoints, supported grants, scopes, and algorithms. |
+| `GET` | `/jwks` | Discovery | Returns the PS256 public signing keys used to verify access tokens. |
+| `GET` | `/auth` | OAuth 2.0 | Starts the Authorization Code + PKCE flow and redirects the user agent. |
+| `POST` | `/token` | OAuth 2.0 | Exchanges an authorization code, refresh token, or client credentials for tokens. |
+| `POST` | `/token/revocation` | OAuth 2.0 | Revokes an access or refresh token. |
+| `GET` | `/api/v1/me` | Identity | Returns the effective identity carried by the current Bearer token. |
+
+## Authentication model
+
+Most endpoints are public and require no credentials — they are designed to be called by browsers and OAuth clients during flow initiation. The one protected endpoint is `GET /api/v1/me`, which requires a valid Bearer token in the `Authorization` header.
+
+| Endpoint | Auth required |
+|----------|---------------|
+| `GET /.well-known/openid-configuration` | None |
+| `GET /jwks` | None |
+| `GET /auth` | None |
+| `POST /token` | None (credentials are in the request body) |
+| `POST /token/revocation` | None (token is in the request body) |
+| `GET /api/v1/me` | **Bearer JWT** |
+
+## Token format
+
+All tokens issued by MAVULA Identity Access are JSON Web Tokens (JWTs) signed with the **PS256** algorithm (RSASSA-PSS with SHA-256). Resource servers verify tokens locally by fetching the public key set from `/jwks` and caching it — you should never need to forward tokens back to this API for validation.
+
+```text
+Authorization: Bearer <PS256-signed JWT>
+```
+
+<Note>
+  Validate the token's `iss` claim against `https://identity.mavula.dev`, its `aud` claim against your registered resource server identifier, and its `exp` claim against the current time on every protected boundary. Accepting tokens that fail any of these checks is a security vulnerability.
+</Note>
+
+## Scopes
+
+Scopes constrain what a token is permitted to do. You request scopes at authorization time; the token only carries the subset that the operator's role permits.
+
+| Scope | Description |
+|-------|-------------|
+| `openid` | Required for all operator flows. Enables the issuance of an ID token. |
+| `profile` | Grants access to `GET /api/v1/me` to read effective identity claims. |
+| `finance.read` | Authorizes read operations on tenant-scoped financial resources in Ledger Core. |
+| `finance.write` | Authorizes write and mutation operations on tenant-scoped financial resources. |
+| `internal.worker` | Issued exclusively to institutional backend services via the client credentials grant. Authorizes service-to-service callbacks. |
+
+<Warning>
+  The `internal.worker` scope is not available to human operators. It is reserved for the client credentials grant used by backend services. Attempting to request it in an Authorization Code flow will result in an error.
+</Warning>
+
+## OpenID Provider metadata
+
+MAVULA Identity Access is a fully spec-compliant OpenID Provider. You can discover all endpoint URLs, supported grant types, and signing algorithms programmatically from the standard metadata document:
+
+```text
+https://identity.mavula.dev/.well-known/openid-configuration
+```
+
+This is the authoritative source for endpoint URLs. Hard-coding endpoint URLs in your integration is discouraged — read them from the metadata document at startup instead.

@@ -1,0 +1,309 @@
+---
+title: "Read Projections: Loan, Ledger, and Product Activity"
+sidebarTitle: "Projections"
+description: "Query eventually consistent read models for loan activity, ledger activity, and product publications using the MAVULA Ledger Core Projections API."
+---
+
+Projections are read models derived from committed domain events. The Ledger Core API exposes three projection types — loan activity, ledger activity, and product publications — alongside a status endpoint that lets you inspect how current each projection is. You can use projections for operational search, reporting dashboards, and reconciliation workflows, but you should always treat them as secondary to the authoritative command surface for immediate financial decisions.
+
+<Note>
+  **Eventual consistency:** Projections may lag behind the command surface by a short interval. A successful write operation (such as posting a transaction or approving a lifecycle request) may not be immediately visible in projection queries. Read `/api/projections/status` to inspect the `lag_seconds` for each projection. Use the account balance endpoint (`GET /api/accounts/{accountId}/balance`) or individual resource endpoints for authoritative, synchronous reads.
+</Note>
+
+All projection endpoints require the `finance.read` permission.
+
+---
+
+## Read projection checkpoints
+
+Returns freshness metadata for each projection — including the last processed event identifier, the time it occurred, and the current lag in seconds. Use this endpoint to monitor projection health and to decide whether a projection result is fresh enough for your use case.
+
+```
+GET https://ledger.mavula.dev/api/projections/status
+```
+
+<CodeGroup>
+```bash cURL
+curl -sS https://ledger.mavula.dev/api/projections/status \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+</CodeGroup>
+
+### Response `200`
+
+Returns an array of `ProjectionStatus` objects, one per registered projection.
+
+<ResponseField name="projection_name" type="string" required>
+  Name of the projection: `loan_activity`, `ledger_activity`, or `product_publication`.
+</ResponseField>
+
+<ResponseField name="last_event_id" type="string">
+  Identifier of the last domain event that was processed into this projection.
+</ResponseField>
+
+<ResponseField name="last_occurred_at" type="string">
+  ISO 8601 timestamp when the last processed event occurred on the command side.
+</ResponseField>
+
+<ResponseField name="updated_at" type="string">
+  ISO 8601 timestamp of the most recent projection update.
+</ResponseField>
+
+<ResponseField name="lag_seconds" type="number">
+  Approximate lag in seconds between the command side and the projection. A value of `0` indicates the projection is fully caught up.
+</ResponseField>
+
+```json
+[
+  {
+    "projection_name": "loan_activity",
+    "last_event_id": "evt_a9b8c7d6",
+    "last_occurred_at": "2024-11-15T11:59:50.000Z",
+    "updated_at": "2024-11-15T11:59:51.200Z",
+    "lag_seconds": 1.2
+  },
+  {
+    "projection_name": "ledger_activity",
+    "last_event_id": "evt_e5f4g3h2",
+    "last_occurred_at": "2024-11-15T11:59:55.000Z",
+    "updated_at": "2024-11-15T11:59:55.800Z",
+    "lag_seconds": 0.8
+  },
+  {
+    "projection_name": "product_publication",
+    "last_event_id": "evt_i1j0k9l8",
+    "last_occurred_at": "2024-11-15T11:58:00.000Z",
+    "updated_at": "2024-11-15T11:58:01.500Z",
+    "lag_seconds": 0.0
+  }
+]
+```
+
+---
+
+## Loan activity projections
+
+Loan activity projections give you a read-optimised view of loan lifecycle events, suitable for dashboards and portfolio-level reporting.
+
+### List loan activity projections
+
+```
+GET https://ledger.mavula.dev/api/projections/loan-activity
+```
+
+<CodeGroup>
+```bash cURL
+curl -sS https://ledger.mavula.dev/api/projections/loan-activity \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+</CodeGroup>
+
+**Response `200`** — Array of `Projection` objects with `projection_name: "loan_activity"`.
+
+<ResponseField name="projection_name" type="string" required>
+  Always `loan_activity` for this endpoint.
+</ResponseField>
+
+<ResponseField name="entity_id" type="string" required>
+  The loan identifier this projection record represents.
+</ResponseField>
+
+<ResponseField name="payload" type="object" required>
+  The projected loan state. Contents vary by product and event type.
+</ResponseField>
+
+<ResponseField name="last_event_id" type="string">
+  The last domain event that updated this projection record.
+</ResponseField>
+
+<ResponseField name="last_event_type" type="string">
+  Type of the last event applied to this projection.
+</ResponseField>
+
+<ResponseField name="last_event_version" type="integer">
+  Version of the last event applied.
+</ResponseField>
+
+<ResponseField name="updated_at" type="string">
+  ISO 8601 timestamp of the most recent update to this projection record.
+</ResponseField>
+
+---
+
+### Read a specific loan activity projection
+
+Returns the projection record for a single loan identified by `loanId`.
+
+```
+GET https://ledger.mavula.dev/api/projections/loan-activity/{loanId}
+```
+
+<ParamField path="loanId" type="string" required>
+  The loan identifier to look up.
+</ParamField>
+
+<CodeGroup>
+```bash cURL
+curl -sS https://ledger.mavula.dev/api/projections/loan-activity/loan_001 \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+</CodeGroup>
+
+**Response `200`** — A single `Projection` object.
+
+```json
+{
+  "projection_name": "loan_activity",
+  "entity_id": "loan_001",
+  "payload": {
+    "status": "DISBURSED",
+    "outstanding_balance": "45000.00",
+    "currency": "MZN",
+    "next_repayment_date": "2024-12-01"
+  },
+  "last_event_id": "evt_a9b8c7d6",
+  "last_event_type": "LOAN_DISBURSED",
+  "last_event_version": 3,
+  "updated_at": "2024-11-15T11:59:51.200Z"
+}
+```
+
+---
+
+## Ledger activity projections
+
+Ledger activity projections provide a searchable, read-optimised view of journal entries across the ledger. Use them for reconciliation, auditing, and reporting workflows.
+
+### List ledger activity projections
+
+```
+GET https://ledger.mavula.dev/api/projections/ledger-activity
+```
+
+<CodeGroup>
+```bash cURL
+curl -sS https://ledger.mavula.dev/api/projections/ledger-activity \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+</CodeGroup>
+
+**Response `200`** — Array of `Projection` objects with `projection_name: "ledger_activity"`.
+
+---
+
+### Read a specific ledger activity projection
+
+Returns the projection record for a single journal entry identified by `journalEntryId`.
+
+```
+GET https://ledger.mavula.dev/api/projections/ledger-activity/{journalEntryId}
+```
+
+<ParamField path="journalEntryId" type="string" required>
+  The journal entry identifier to look up.
+</ParamField>
+
+<CodeGroup>
+```bash cURL
+curl -sS https://ledger.mavula.dev/api/projections/ledger-activity/jnl_xyz789 \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+</CodeGroup>
+
+**Response `200`** — A single `Projection` object.
+
+```json
+{
+  "projection_name": "ledger_activity",
+  "entity_id": "jnl_xyz789",
+  "payload": {
+    "journal_entry_id": "jnl_xyz789",
+    "posted_at": "2024-11-14T08:30:00.000Z",
+    "lines": [
+      {"account_code": "1100", "debit_amount": "500.00"},
+      {"account_code": "2100", "credit_amount": "500.00"}
+    ],
+    "reference": "Salary deposit",
+    "status": "POSTED"
+  },
+  "last_event_id": "evt_e5f4g3h2",
+  "last_event_type": "JOURNAL_ENTRY_POSTED",
+  "last_event_version": 1,
+  "updated_at": "2024-11-15T11:59:55.800Z"
+}
+```
+
+---
+
+## Product publication projections
+
+Product publication projections surface the latest published state of each financial product. They are useful for building product catalogue views and for confirming that a configuration change has been propagated.
+
+### List product publication projections
+
+```
+GET https://ledger.mavula.dev/api/projections/product-publications
+```
+
+<CodeGroup>
+```bash cURL
+curl -sS https://ledger.mavula.dev/api/projections/product-publications \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+</CodeGroup>
+
+**Response `200`** — Array of `Projection` objects with `projection_name: "product_publication"`.
+
+---
+
+### Read a specific product publication projection
+
+Returns the projection record representing the latest published state of a specific financial product.
+
+```
+GET https://ledger.mavula.dev/api/projections/product-publications/{productId}
+```
+
+<ParamField path="productId" type="string" required>
+  The product identifier to look up.
+</ParamField>
+
+<CodeGroup>
+```bash cURL
+curl -sS https://ledger.mavula.dev/api/projections/product-publications/savings_standard \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+</CodeGroup>
+
+**Response `200`** — A single `Projection` object.
+
+```json
+{
+  "projection_name": "product_publication",
+  "entity_id": "savings_standard",
+  "payload": {
+    "product_id": "savings_standard",
+    "type": "SAVINGS",
+    "currency": "MZN",
+    "minimum_balance": "0.00",
+    "interest_rate": "0.0350",
+    "published_at": "2024-10-01T00:00:00.000Z"
+  },
+  "last_event_id": "evt_i1j0k9l8",
+  "last_event_type": "PRODUCT_PUBLISHED",
+  "last_event_version": 2,
+  "updated_at": "2024-11-15T11:58:01.500Z"
+}
+```
+
+---
+
+## Safe consumption guidelines
+
+Projections are powerful for search and reporting, but you should follow these rules to avoid consistency pitfalls:
+
+- **Do not post financial entries from a projection record.** Always use the authoritative command surface for decisions that trigger new financial effects.
+- **Re-read by entity ID** when a list result may have been produced before a recent command. The single-entity endpoints reflect the latest projected state for that record.
+- **Store the `last_event_id` or `updated_at`** when you need incremental reconciliation. This lets you detect whether a projection record has advanced since your last read.
+- **Monitor `lag_seconds`** via `/api/projections/status` in your alerting pipeline. Alert on sustained lag, not on single transient spikes.
+- **Treat the projection payload as a versioned public representation**, not as a direct view of the internal event stream.

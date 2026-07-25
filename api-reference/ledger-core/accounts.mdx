@@ -1,0 +1,372 @@
+---
+title: "Accounts API: Create, Read, and Statement"
+sidebarTitle: "Accounts"
+description: "Create tenant-scoped accounts, read real-time balances, and page through cursor-paginated statements using the Ledger Core Accounts API."
+---
+
+The Accounts API gives you full control over the financial accounts that sit at the heart of the MAVULA ledger. You can create an account tied to a specific customer and financial product, read its current balance for use in decisioning, and retrieve a time-ordered statement of every posted entry. All monetary amounts are returned as decimal strings — never parse them with binary floating-point arithmetic.
+
+---
+
+## List accounts
+
+<Note>
+  **Required permission:** `finance.read`
+</Note>
+
+Returns all accounts visible to the authenticated tenant.
+
+```
+GET https://ledger.mavula.dev/api/accounts
+```
+
+<CodeGroup>
+```bash cURL
+curl -sS https://ledger.mavula.dev/api/accounts \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+</CodeGroup>
+
+### Response `200`
+
+Returns an array of `Account` objects.
+
+<ResponseField name="id" type="string" required>
+  Unique account identifier.
+</ResponseField>
+
+<ResponseField name="customer_id" type="string">
+  The customer this account belongs to.
+</ResponseField>
+
+<ResponseField name="product_id" type="string">
+  The financial product that governs this account.
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Human-readable account name.
+</ResponseField>
+
+<ResponseField name="currency" type="string" required>
+  ISO 4217 currency code (e.g. `MZN`, `USD`).
+</ResponseField>
+
+<ResponseField name="status" type="string" required>
+  Account status. One of `ACTIVE`, `FROZEN`, `CLOSED`.
+</ResponseField>
+
+<ResponseField name="balance" type="string" required>
+  Current balance as a decimal string (e.g. `"1500.00"`).
+</ResponseField>
+
+<ResponseField name="version" type="integer" required>
+  Monotonically increasing version counter updated on every state change.
+</ResponseField>
+
+<ResponseField name="created_at" type="string" required>
+  ISO 8601 timestamp of account creation.
+</ResponseField>
+
+<ResponseField name="updated_at" type="string" required>
+  ISO 8601 timestamp of last update.
+</ResponseField>
+
+---
+
+## Create an account
+
+<Note>
+  **Required permission:** `finance.write` — Requires `Idempotency-Key` header.
+</Note>
+
+Creates a new active, tenant-scoped account linked to a customer and a financial product. An identical `Idempotency-Key` replay returns the original `201` response without creating a duplicate.
+
+```
+POST https://ledger.mavula.dev/api/accounts
+```
+
+### Request headers
+
+<ParamField header="Authorization" type="string" required>
+  `Bearer <token>`
+</ParamField>
+
+<ParamField header="Idempotency-Key" type="string" required>
+  A unique, stable key for this operation (16–128 chars, `[A-Za-z0-9._:-]+`).
+</ParamField>
+
+<ParamField header="X-Correlation-ID" type="string">
+  Optional trace identifier. Recommended for log correlation.
+</ParamField>
+
+### Request body
+
+<ParamField body="customer_id" type="string" required>
+  Identifier of the customer who owns this account. Max 128 chars.
+</ParamField>
+
+<ParamField body="product_id" type="string" required>
+  Identifier of the financial product to apply. Max 128 chars.
+</ParamField>
+
+<ParamField body="name" type="string" required>
+  Human-readable account name. Max 160 chars.
+</ParamField>
+
+<ParamField body="currency" type="string" required>
+  ISO 4217 three-letter currency code, uppercase (e.g. `MZN`).
+</ParamField>
+
+<CodeGroup>
+```bash cURL
+curl -sS -X POST https://ledger.mavula.dev/api/accounts \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 56a1f534-9054-4dcf-82cb-55ebc102da18" \
+  -H "X-Correlation-ID: 9ab719e7-7aa6-4cc5-9d03-01eef511262b" \
+  -d '{
+    "customer_id": "customer_001",
+    "product_id": "savings_standard",
+    "name": "Primary Savings",
+    "currency": "MZN"
+  }'
+```
+
+```json Example request body
+{
+  "customer_id": "customer_001",
+  "product_id": "savings_standard",
+  "name": "Primary Savings",
+  "currency": "MZN"
+}
+```
+</CodeGroup>
+
+### Response `201`
+
+Returns the newly created `Account` object. The `status` will be `ACTIVE` and `balance` will be `"0.00"`.
+
+```json
+{
+  "id": "acct_a1b2c3d4",
+  "customer_id": "customer_001",
+  "product_id": "savings_standard",
+  "name": "Primary Savings",
+  "currency": "MZN",
+  "status": "ACTIVE",
+  "balance": "0.00",
+  "version": 1,
+  "created_at": "2024-11-15T09:00:00.000Z",
+  "updated_at": "2024-11-15T09:00:00.000Z"
+}
+```
+
+---
+
+## Read an account
+
+<Note>
+  **Required permission:** `finance.read`
+</Note>
+
+Returns a single account by its identifier.
+
+```
+GET https://ledger.mavula.dev/api/accounts/{accountId}
+```
+
+### Path parameters
+
+<ParamField path="accountId" type="string" required>
+  The unique account identifier.
+</ParamField>
+
+<CodeGroup>
+```bash cURL
+curl -sS https://ledger.mavula.dev/api/accounts/acct_a1b2c3d4 \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+</CodeGroup>
+
+### Response `200`
+
+Returns the `Account` object. See [Create an account](#create-an-account) for the full field reference.
+
+---
+
+## Read account balance
+
+<Note>
+  **Required permission:** `finance.read`
+</Note>
+
+Returns the synchronous account balance. This is the authoritative value used for financial decisioning — it reflects every committed posting and is not subject to eventual consistency lag.
+
+```
+GET https://ledger.mavula.dev/api/accounts/{accountId}/balance
+```
+
+### Path parameters
+
+<ParamField path="accountId" type="string" required>
+  The unique account identifier.
+</ParamField>
+
+<CodeGroup>
+```bash cURL
+curl -sS https://ledger.mavula.dev/api/accounts/acct_a1b2c3d4/balance \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+</CodeGroup>
+
+### Response `200`
+
+<ResponseField name="account_id" type="string" required>
+  The account identifier this balance belongs to.
+</ResponseField>
+
+<ResponseField name="balance" type="string" required>
+  Current balance as a decimal string. Negative values are prefixed with `-`.
+</ResponseField>
+
+<ResponseField name="currency" type="string" required>
+  ISO 4217 currency code.
+</ResponseField>
+
+<ResponseField name="version" type="integer">
+  The account version this balance snapshot corresponds to.
+</ResponseField>
+
+```json
+{
+  "account_id": "acct_a1b2c3d4",
+  "balance": "12500.50",
+  "currency": "MZN",
+  "version": 7
+}
+```
+
+---
+
+## Read account statement
+
+<Note>
+  **Required permission:** `finance.read`
+</Note>
+
+Returns a cursor-paginated list of statement entries for an account, ordered by posting time. Use the `next_cursor` value from each response as the `cursor` query parameter on the subsequent request to page forward through the history.
+
+```
+GET https://ledger.mavula.dev/api/accounts/{accountId}/statement
+```
+
+### Path parameters
+
+<ParamField path="accountId" type="string" required>
+  The unique account identifier.
+</ParamField>
+
+### Query parameters
+
+<ParamField query="from" type="string">
+  Filter entries posted on or after this ISO 8601 datetime.
+</ParamField>
+
+<ParamField query="to" type="string">
+  Filter entries posted on or before this ISO 8601 datetime.
+</ParamField>
+
+<ParamField query="cursor" type="string">
+  Opaque pagination cursor returned by a previous response as `next_cursor`.
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Number of entries per page. Min `1`, max `100`, default `50`.
+</ParamField>
+
+<CodeGroup>
+```bash First page
+curl -sS 'https://ledger.mavula.dev/api/accounts/acct_a1b2c3d4/statement?limit=100' \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+
+```bash Next page (with cursor)
+curl -sS 'https://ledger.mavula.dev/api/accounts/acct_a1b2c3d4/statement?limit=100&cursor=eyJwb3N0ZWRfYXQiOiIyMDI0LTExLTE1VDA5OjAwOjAwLjAwMFoifQ' \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+
+```bash Date-filtered range
+curl -sS 'https://ledger.mavula.dev/api/accounts/acct_a1b2c3d4/statement?from=2024-11-01T00:00:00Z&to=2024-11-30T23:59:59Z' \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+</CodeGroup>
+
+### Response `200`
+
+<ResponseField name="items" type="array" required>
+  Array of statement entry objects.
+
+  <Expandable title="AccountEntry fields">
+    <ResponseField name="id" type="string" required>
+      Unique entry identifier.
+    </ResponseField>
+    <ResponseField name="account_id" type="string" required>
+      The account this entry belongs to.
+    </ResponseField>
+    <ResponseField name="journal_entry_id" type="string">
+      The journal entry that produced this posting, if applicable.
+    </ResponseField>
+    <ResponseField name="transaction_id" type="string">
+      The transaction that produced this posting, if applicable.
+    </ResponseField>
+    <ResponseField name="posting_key" type="string" required>
+      Stable posting key used for deduplication.
+    </ResponseField>
+    <ResponseField name="entry_type" type="string" required>
+      One of `OPENING_BALANCE`, `POSTING`, `REVERSAL`, `CORRECTION`.
+    </ResponseField>
+    <ResponseField name="direction" type="string" required>
+      `DEBIT` or `CREDIT`.
+    </ResponseField>
+    <ResponseField name="amount" type="string" required>
+      Entry amount as a decimal string.
+    </ResponseField>
+    <ResponseField name="currency" type="string" required>
+      ISO 4217 currency code.
+    </ResponseField>
+    <ResponseField name="balance_after" type="string" required>
+      Account balance immediately after this entry was posted.
+    </ResponseField>
+    <ResponseField name="reference" type="string">
+      Optional human-readable reference attached to the posting.
+    </ResponseField>
+    <ResponseField name="posted_at" type="string" required>
+      ISO 8601 timestamp of when the entry was posted.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="next_cursor" type="string">
+  Opaque cursor for the next page. Absent when you have reached the end of the statement.
+</ResponseField>
+
+```json
+{
+  "items": [
+    {
+      "id": "entry_001",
+      "account_id": "acct_a1b2c3d4",
+      "journal_entry_id": "jnl_xyz789",
+      "posting_key": "txn_abc123:CREDIT",
+      "entry_type": "POSTING",
+      "direction": "CREDIT",
+      "amount": "500.00",
+      "currency": "MZN",
+      "balance_after": "12500.50",
+      "reference": "Salary deposit",
+      "posted_at": "2024-11-14T08:30:00.000Z"
+    }
+  ],
+  "next_cursor": "eyJwb3N0ZWRfYXQiOiIyMDI0LTExLTE0VDA4OjMwOjAwLjAwMFoifQ"
+}
+```

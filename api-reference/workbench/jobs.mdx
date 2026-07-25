@@ -1,0 +1,291 @@
+---
+title: "Payment Jobs API: Submit and Monitor Jobs"
+sidebarTitle: "Jobs"
+description: "Submit async payment jobs to Workbench, then poll for durable execution state, attempt counts, results, and terminal failure details."
+---
+
+The Jobs endpoints let you hand off payment work to Workbench and track it from acceptance through terminal outcome. Workbench accepts the job, persists it durably, and delegates execution to the relevant settlement domain — job acceptance is not the same as settlement completion. You are responsible for polling the status endpoint until the job reaches a terminal state, then reconciling the result against Ledger Core.
+
+<Note>
+Jobs are fully asynchronous. Do not interpret a `201 Created` response as a completed financial event. Always poll `GET /api/jobs/{jobId}` for the current state, and never resubmit a job simply because you did not receive the initial response — use your `Idempotency-Key` to replay the original request safely.
+</Note>
+
+---
+
+## POST /api/jobs
+
+Submit a new payment job scoped to your tenant. The tenant is always derived from the Bearer token — you do not pass a tenant ID in the request body.
+
+**Required permission:** `workbench.jobs.write`  
+**Required header:** `Idempotency-Key`
+
+### Request headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer JWT. Example: `Bearer eyJhbGci...`
+</ParamField>
+
+<ParamField header="Idempotency-Key" type="string" required>
+  A unique key (1–255 characters) that makes this submission safe to replay. Reuse the same key with an identical body to recover from network errors without creating duplicate jobs.
+</ParamField>
+
+<ParamField header="X-Correlation-ID" type="string" required>
+  A caller-supplied trace reference (`[A-Za-z0-9._:-]`, 1–128 characters) propagated through all downstream systems.
+</ParamField>
+
+### Request body
+
+<ParamField body="type" type="string" required>
+  The job type that determines which settlement workflow is invoked. One of:
+
+  | Value | Purpose |
+  |---|---|
+  | `PAYMENT_CAPTURE` | Initiate an inbound payment capture on a supported rail. |
+  | `PAYMENT_DISBURSEMENT` | Initiate an outbound disbursement to a payee. |
+  | `PAYMENT_SETTLEMENT` | Record a provider settlement event against an existing capture or disbursement. |
+  | `PAYMENT_RECONCILIATION` | Trigger a reconciliation pass for outstanding payment records. |
+</ParamField>
+
+<ParamField body="queue" type="string" default="payments">
+  Target queue. Must be `payments`. Defaults to `payments` if omitted.
+</ParamField>
+
+<ParamField body="max_attempts" type="integer" default="3">
+  Maximum retry attempts before the job moves to `FAILED`. Minimum `1`. Defaults to `3`.
+</ParamField>
+
+<ParamField body="payload" type="object" required>
+  Job-type-specific payload. The required fields depend on the `type` value.
+
+  <Expandable title="PAYMENT_CAPTURE and PAYMENT_DISBURSEMENT payload fields">
+    <ParamField body="payload.idempotency_key" type="string" required>
+      Idempotency key for the payment operation itself (distinct from the header key).
+    </ParamField>
+    <ParamField body="payload.correlation_id" type="string" required>
+      Trace correlation identifier for this payment operation.
+    </ParamField>
+    <ParamField body="payload.rail" type="string" required>
+      Payment rail. One of: `mpesa`, `emola`, `mkesh`, `bank_transfer`.
+    </ParamField>
+    <ParamField body="payload.amount" type="object" required>
+      Amount in minor units (centavos).
+      - `currency` — must be `MZN`.
+      - `valueMinor` — integer ≥ 1.
+    </ParamField>
+    <ParamField body="payload.payer" type="object" required>
+      Payer party. Requires `accountRef` (string). Optionally accepts `displayName` and `phoneNumber`.
+    </ParamField>
+    <ParamField body="payload.payee" type="object" required>
+      Payee party. Requires `accountRef` (string). Optionally accepts `displayName` and `phoneNumber`.
+    </ParamField>
+    <ParamField body="payload.provider_reference" type="string">
+      External provider reference, if already known at submission time.
+    </ParamField>
+    <ParamField body="payload.metadata" type="object">
+      Freeform string key/value pairs for caller-defined context.
+    </ParamField>
+  </Expandable>
+
+  <Expandable title="PAYMENT_SETTLEMENT payload fields">
+    <ParamField body="payload.provider_reference" type="string" required>
+      The provider's unique reference for the payment being settled.
+    </ParamField>
+    <ParamField body="payload.provider_event_id" type="string" required>
+      The provider's event or callback identifier for this settlement.
+    </ParamField>
+    <ParamField body="payload.status" type="string" required>
+      Settlement outcome reported by the provider. One of: `pending`, `succeeded`, `failed`.
+    </ParamField>
+    <ParamField body="payload.failure_reason" type="string">
+      Human-readable reason string when `status` is `failed`.
+    </ParamField>
+  </Expandable>
+
+  <Expandable title="PAYMENT_RECONCILIATION payload fields">
+    <ParamField body="payload.limit" type="integer">
+      Maximum number of records to reconcile in this pass. Range: 1–500.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Response — 201 Created
+
+<ResponseField name="id" type="string" required>
+  Workbench-assigned job identifier. Persist this to poll status.
+</ResponseField>
+
+<ResponseField name="queue" type="string" required>
+  Queue the job was placed on.
+</ResponseField>
+
+<ResponseField name="type" type="string" required>
+  The job type as submitted.
+</ResponseField>
+
+<ResponseField name="tenant_id" type="string" required>
+  Tenant derived from the Bearer token.
+</ResponseField>
+
+<ResponseField name="status" type="string" required>
+  Initial job state. Will be `QUEUED` on first acceptance.
+</ResponseField>
+
+<ResponseField name="attempts" type="integer" required>
+  Number of execution attempts so far. Starts at `0`.
+</ResponseField>
+
+<ResponseField name="max_attempts" type="integer" required>
+  Maximum attempts before terminal failure.
+</ResponseField>
+
+<ResponseField name="payload" type="object" required>
+  The payload as accepted by Workbench.
+</ResponseField>
+
+<ResponseField name="created_at" type="string (date-time)" required>
+  ISO 8601 timestamp when the job was accepted.
+</ResponseField>
+
+<ResponseField name="updated_at" type="string (date-time)" required>
+  ISO 8601 timestamp of the last state change.
+</ResponseField>
+
+<ResponseField name="result" type="object">
+  Present on terminal success. Contains the settlement domain result.
+</ResponseField>
+
+<ResponseField name="last_error" type="string">
+  Present when the most recent attempt failed. Describes the error encountered.
+</ResponseField>
+
+<ResponseField name="started_at" type="string (date-time)">
+  Timestamp of first execution attempt.
+</ResponseField>
+
+<ResponseField name="completed_at" type="string (date-time)">
+  Timestamp of terminal successful completion.
+</ResponseField>
+
+<ResponseField name="failed_at" type="string (date-time)">
+  Timestamp of terminal failure (retry policy exhausted).
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash Submit a PAYMENT_CAPTURE job
+curl -sS -X POST https://workbench.mavula.dev/api/jobs \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: bfe8b575-2137-4a86-a210-cc2182130aed" \
+  -H "X-Correlation-ID: fd662f62-19c7-4f92-941f-64667437e6f9" \
+  -d '{
+    "queue": "payments",
+    "type": "PAYMENT_CAPTURE",
+    "max_attempts": 3,
+    "payload": {
+      "idempotency_key": "payment_capture_20260715_001",
+      "correlation_id": "fd662f62-19c7-4f92-941f-64667437e6f9",
+      "rail": "mpesa",
+      "amount": { "currency": "MZN", "valueMinor": 250000 },
+      "payer": { "accountRef": "customer_001", "phoneNumber": "+258840000001" },
+      "payee": { "accountRef": "merchant_001" }
+    }
+  }'
+```
+
+```json 201 Response
+{
+  "id": "job_01J5XKPQ8ZE3W4MFBT9N6VHD2R",
+  "queue": "payments",
+  "type": "PAYMENT_CAPTURE",
+  "tenant_id": "tenant_mz_001",
+  "status": "QUEUED",
+  "attempts": 0,
+  "max_attempts": 3,
+  "payload": {
+    "idempotency_key": "payment_capture_20260715_001",
+    "correlation_id": "fd662f62-19c7-4f92-941f-64667437e6f9",
+    "rail": "mpesa",
+    "amount": { "currency": "MZN", "valueMinor": 250000 },
+    "payer": { "accountRef": "customer_001", "phoneNumber": "+258840000001" },
+    "payee": { "accountRef": "merchant_001" }
+  },
+  "created_at": "2026-07-15T08:00:00Z",
+  "updated_at": "2026-07-15T08:00:00Z"
+}
+```
+
+</CodeGroup>
+
+---
+
+## GET /api/jobs/{jobId}
+
+Read the current status, attempt count, result, and failure details for a tenant-scoped job.
+
+**Required permission:** `workbench.read`
+
+### Path parameters
+
+<ParamField path="jobId" type="string" required>
+  The job identifier returned by `POST /api/jobs`.
+</ParamField>
+
+### Response — 200 OK
+
+The response schema is identical to the `POST /api/jobs` 201 response documented above.
+
+### Operational states
+
+Use the following table to determine what action your integration should take for each observed state:
+
+| State | Meaning | Recommended client action |
+|---|---|---|
+| `QUEUED` | Work is durable and awaiting execution by a worker. | Poll with bounded exponential backoff. |
+| `PROCESSING` | A worker is actively executing the job — provider interaction or reconciliation is in progress. | Continue polling; do not resubmit. |
+| `COMPLETED` | The job reached its terminal successful state. | Reconcile the resulting domain state against Ledger Core. |
+| `FAILED` | The retry policy was exhausted or the input cannot proceed. | Read `last_error` and correct the input before resubmitting with a new idempotency key. |
+
+<Note>
+Do not infer a ledger posting from a payment job state. Ledger Core is the authoritative owner of financial postings and all balance invariants. A `COMPLETED` job means the settlement workflow finished successfully; it does not guarantee an immediate visible balance change.
+</Note>
+
+### Example
+
+<CodeGroup>
+
+```bash Poll job status
+curl -sS https://workbench.mavula.dev/api/jobs/job_01J5XKPQ8ZE3W4MFBT9N6VHD2R \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+
+```json 200 Response (COMPLETED)
+{
+  "id": "job_01J5XKPQ8ZE3W4MFBT9N6VHD2R",
+  "queue": "payments",
+  "type": "PAYMENT_CAPTURE",
+  "tenant_id": "tenant_mz_001",
+  "status": "COMPLETED",
+  "attempts": 1,
+  "max_attempts": 3,
+  "payload": {
+    "idempotency_key": "payment_capture_20260715_001",
+    "correlation_id": "fd662f62-19c7-4f92-941f-64667437e6f9",
+    "rail": "mpesa",
+    "amount": { "currency": "MZN", "valueMinor": 250000 },
+    "payer": { "accountRef": "customer_001", "phoneNumber": "+258840000001" },
+    "payee": { "accountRef": "merchant_001" }
+  },
+  "result": {
+    "provider_reference": "MPESA-TXN-20260715-884521"
+  },
+  "created_at": "2026-07-15T08:00:00Z",
+  "started_at": "2026-07-15T08:00:02Z",
+  "completed_at": "2026-07-15T08:00:08Z",
+  "updated_at": "2026-07-15T08:00:08Z"
+}
+```
+
+</CodeGroup>

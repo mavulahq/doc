@@ -1,0 +1,221 @@
+---
+title: "Platform Status API: Queues and Schedules"
+sidebarTitle: "Status"
+description: "Read overall platform health, per-queue depths and processing rates, and registered schedule configurations to monitor Workbench in real time."
+---
+
+The Status endpoints give you authenticated, real-time visibility into the operational health of the Workbench platform. You can check whether the service and its dependencies are operating normally, inspect per-queue depths and throughput counters to detect processing backlogs, and enumerate registered schedules to confirm that recurring jobs are configured and enabled as expected. All three endpoints require the `workbench.read` permission and return JSON.
+
+<Tip>
+Integrate these endpoints into your internal monitoring dashboards or alerting pipelines. Polling `GET /api/status` is a lightweight way to detect degraded or down conditions before they surface in job latency. Pair it with `GET /api/status/queues` to set threshold-based alerts on queue depth and dead-letter counts.
+</Tip>
+
+---
+
+## GET /api/status
+
+Read the overall platform status, including worker health and dependency connectivity.
+
+**Required permission:** `workbench.read`
+
+### Request headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer JWT. Example: `Bearer eyJhbGci...`
+</ParamField>
+
+### Response — 200 OK
+
+<ResponseField name="service" type="string">
+  Service name identifier.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Overall platform health. One of:
+
+  | Value | Meaning |
+  |---|---|
+  | `ok` | All components are operating normally. |
+  | `degraded` | One or more components are impaired but the service is partially available. |
+  | `down` | The service is unavailable or a critical dependency has failed. |
+</ResponseField>
+
+<ResponseField name="timestamp" type="string (date-time)">
+  ISO 8601 timestamp at which the status snapshot was taken.
+</ResponseField>
+
+<ResponseField name="worker" type="object">
+  Worker-specific health details. Structure is implementation-defined and may include fields such as concurrency, active job count, and uptime.
+</ResponseField>
+
+<ResponseField name="dependencies" type="object">
+  Health of downstream dependencies (database, queue broker, external services). Each key is a dependency name and the value contains its connectivity status.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash Read platform status
+curl -sS https://workbench.mavula.dev/api/status \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+
+```json 200 Response
+{
+  "service": "workbench",
+  "status": "ok",
+  "timestamp": "2026-07-15T08:30:00Z",
+  "worker": {
+    "concurrency": 10,
+    "active": 3,
+    "uptime_seconds": 86400
+  },
+  "dependencies": {
+    "database": { "status": "ok", "latency_ms": 4 },
+    "queue_broker": { "status": "ok", "latency_ms": 2 },
+    "ledger_core": { "status": "ok" }
+  }
+}
+```
+
+</CodeGroup>
+
+---
+
+## GET /api/status/queues
+
+Read per-queue statistics including current depth, in-flight processing counts, delayed jobs, and dead-letter accumulation. Use this endpoint to detect backlogs and identify queues that may need operator attention.
+
+**Required permission:** `workbench.read`
+
+### Request headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer JWT.
+</ParamField>
+
+### Response — 200 OK
+
+Returns an array of queue statistics objects.
+
+<ResponseField name="queue" type="string" required>
+  The queue name (e.g. `payments`).
+</ResponseField>
+
+<ResponseField name="queued" type="integer" required>
+  Number of jobs waiting to be picked up by a worker.
+</ResponseField>
+
+<ResponseField name="processing" type="integer" required>
+  Number of jobs currently being executed by a worker.
+</ResponseField>
+
+<ResponseField name="delayed" type="integer" required>
+  Number of jobs scheduled to run at a future time (e.g. retries with backoff).
+</ResponseField>
+
+<ResponseField name="dead_letter" type="integer" required>
+  Number of jobs that have exceeded their retry policy and are awaiting manual review or disposition.
+</ResponseField>
+
+<ResponseField name="total" type="integer" required>
+  Total number of jobs across all non-terminal states.
+</ResponseField>
+
+<ResponseField name="completed" type="integer" required>
+  Cumulative count of jobs that have reached terminal success.
+</ResponseField>
+
+<ResponseField name="failed" type="integer" required>
+  Cumulative count of jobs that have reached terminal failure.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash Read queue status
+curl -sS https://workbench.mavula.dev/api/status/queues \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+
+```json 200 Response
+[
+  {
+    "queue": "payments",
+    "queued": 12,
+    "processing": 3,
+    "delayed": 2,
+    "dead_letter": 0,
+    "total": 17,
+    "completed": 45821,
+    "failed": 14
+  }
+]
+```
+
+</CodeGroup>
+
+---
+
+## GET /api/status/schedules
+
+Read the registered recurring schedules, including their names, queue targets, cadence in milliseconds, and enabled status. Use this endpoint to verify that scheduled jobs such as reconciliation passes are configured correctly and will fire at the expected frequency.
+
+**Required permission:** `workbench.read`
+
+### Request headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer JWT.
+</ParamField>
+
+### Response — 200 OK
+
+Returns an array of scheduled job objects.
+
+<ResponseField name="id" type="string" required>
+  Unique identifier for the scheduled job.
+</ResponseField>
+
+<ResponseField name="queue" type="string" required>
+  The queue this scheduled job submits work to.
+</ResponseField>
+
+<ResponseField name="type" type="string" required>
+  The job type dispatched on each run (e.g. `PAYMENT_RECONCILIATION`).
+</ResponseField>
+
+<ResponseField name="every_ms" type="integer" required>
+  Cadence in milliseconds between each scheduled run. For example, `300000` means the job fires every 5 minutes.
+</ResponseField>
+
+<ResponseField name="payload" type="object" required>
+  The static payload dispatched with each scheduled job instance.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash Read registered schedules
+curl -sS https://workbench.mavula.dev/api/status/schedules \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+
+```json 200 Response
+[
+  {
+    "id": "reconciliation-schedule-001",
+    "queue": "payments",
+    "type": "PAYMENT_RECONCILIATION",
+    "every_ms": 300000,
+    "payload": {
+      "limit": 500
+    }
+  }
+]
+```
+
+</CodeGroup>

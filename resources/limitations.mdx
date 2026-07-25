@@ -1,0 +1,69 @@
+---
+title: "API v1 Limitations and Known Boundaries"
+sidebarTitle: "Limitations"
+description: "A clear summary of the intentional boundaries in MAVULA API v1, with guidance on how to work effectively within each constraint."
+---
+
+MAVULA API v1 documents the implemented public interfaces that have met the platform's ownership, idempotency, failure-behavior, and compatibility review. Understanding where the current boundaries lie — and why they exist — means you can design your integration to work reliably within them rather than discovering edge cases in production. None of the items below reflect unplanned gaps; they are deliberate choices made to keep the public surface stable and auditable. The sections below explain each boundary and, where applicable, what you should do instead.
+
+## Known Boundaries
+
+<Accordion title="No live request console on the documentation site">
+  The documentation site does not provide a browser-based request console, and it does not store or transmit credentials at any point. This is intentional: institutional API keys and bearer tokens must never pass through third-party tooling outside your control.
+
+  **What to do instead:** Use the versioned [Postman collection](/resources/code-examples#postman-collection) included in the developer-docs repository. Configure your credentials in a private Postman environment so they are never visible to collaborators or exported in shared workspaces.
+</Accordion>
+
+<Accordion title="No published SDK packages">
+  SDK packages for TypeScript, Python, Java, Go, or any other language are not yet published to public package registries. All code examples in this documentation use each language's standard HTTP client library.
+
+  **What to do instead:** Generate a typed client from one of the three [OpenAPI contracts](/resources/code-examples#openapi-reference-contracts) using a code-generation tool of your choice (`openapi-generator`, `oazapfts`, `kiota`, etc.), or build a thin wrapper around your language's built-in HTTP client following the patterns in the [TypeScript client example](/resources/code-examples#typescript-client-setup). Pin the contract digest in regulated build pipelines to detect changes before they reach your generated code.
+</Accordion>
+
+<Accordion title="Projection reads are eventually consistent">
+  Read endpoints that return projected state — such as balance views and account summaries — are eventually consistent. They reflect committed commands but may lag slightly behind the most recent write.
+
+  **What to do instead:** Do not rely on a projection read to confirm that a command succeeded. The authoritative result of a command is the response you receive from the mutation endpoint itself, including any error or idempotency replay response. Use read projections for display, reporting, and non-critical decision-making only.
+</Accordion>
+
+<Accordion title="Legacy imports do not mutate financial state">
+  Legacy data imports are staged and validated by the platform, but they do not directly create ledger postings or alter account balances. Import records pass through a validation pipeline before any financial effect is applied.
+
+  **What to do instead:** Treat the import submission response as an acknowledgement of receipt, not as confirmation of financial mutation. Monitor the import's downstream status through the appropriate status or event endpoint rather than assuming the financial state has changed immediately after a successful import submission.
+</Accordion>
+
+<Accordion title="Payment process state does not directly create ledger postings">
+  Progressing a payment through its workflow states does not, by itself, generate ledger postings. The relationship between payment state and ledger entries is mediated by the platform's internal processing pipeline.
+
+  **What to do instead:** Retrieve the definitive account balance or posting history from the Ledger Core API rather than inferring financial state from payment status alone. This keeps your integration authoritative and decoupled from internal processing timing.
+</Accordion>
+
+<Accordion title="Internal and administrative endpoints are excluded">
+  Internal callbacks, health probes, runtime metrics endpoints, and administrative interfaces are not part of the public API surface and are not documented here. Calling undocumented paths is unsupported and may break without notice.
+
+  **What to do instead:** Use the [Workbench status endpoint](/api-reference/workbench/status) (`GET /api/status`) for platform health information that is appropriate for integration-layer consumption.
+</Accordion>
+
+<Accordion title="Proposed interfaces are not yet public">
+  Events, endpoints, or data models that are under design review — including those that have not yet had their ownership, idempotency contract, failure behavior, and compatibility guarantees formally approved — are outside the public reference. They do not appear in the OpenAPI contracts and are not stable for integration.
+
+  **What to do instead:** Rely only on what is described in the three published OpenAPI contracts. If you need a capability that does not yet exist in the public surface, contact your MAVULA integration point of contact to understand the roadmap and avoid building against unstable internals.
+</Accordion>
+
+## Quick Reference
+
+The table below summarizes each boundary and the recommended approach at a glance.
+
+| Boundary | Recommended approach |
+| --- | --- |
+| No live docs console | Use the versioned Postman collection with a private environment |
+| No SDK packages | Generate a client from the OpenAPI contracts, or use a standard HTTP client |
+| Eventually consistent reads | Use mutation responses as the authoritative source of truth |
+| Legacy imports don't post immediately | Poll import status; don't assume immediate financial effect |
+| Payment state ≠ ledger postings | Read balances and postings from Ledger Core directly |
+| Internal endpoints excluded | Use only documented, contract-described paths |
+| Proposed interfaces not public | Integrate only against published OpenAPI contract paths |
+
+<Note>
+  If you encounter behavior that appears inconsistent with what is described here, open an issue in the [developer-docs repository](https://github.com/mavulahq/developer-docs) or contact your MAVULA integration support contact. Do not assume undocumented behavior is stable.
+</Note>

@@ -1,0 +1,183 @@
+---
+title: "Read Effective Identity Endpoint"
+sidebarTitle: "Identity"
+description: "Retrieve the institutional identity carried by a Bearer JWT: tenant, institution, branch, roles, and the full permission set for downstream authorization."
+---
+
+Once your operator has authenticated and you hold a valid access token, `GET /api/v1/me` gives you the complete resolved identity that MAVULA has derived from that token's claims. Rather than decoding the JWT yourself, this endpoint returns a clean JSON object with all institutional context attached — the tenant and institution the operator belongs to, their assigned branch, their role within that institution, and the full permission set they are authorized to exercise. You use these permissions directly in your application to decide which Ledger Core and Workbench operations to expose or permit.
+
+---
+
+## GET /api/v1/me
+
+Returns the effective identity of the authenticated principal — the operator or service represented by the current access token.
+
+**Authentication required.** Include a valid Bearer JWT in the `Authorization` header. The token must carry the `profile` scope. Tokens that are missing, expired, issued for a different audience, or that lack the `profile` scope will receive a `401 Unauthorized` response.
+
+```text
+Authorization: Bearer <PS256-signed JWT>
+```
+
+### Request
+
+This endpoint takes no query parameters or request body.
+
+<CodeGroup>
+```bash cURL
+curl -sS https://identity.mavula.dev/api/v1/me \
+  -H 'Authorization: Bearer eyJhbGciOiJQUzI1NiIsImtpZCI6Im1hdnVsYS1wczI1Ni0yMDI0LTAxIn0...'
+```
+
+```typescript TypeScript
+const response = await fetch('https://identity.mavula.dev/api/v1/me', {
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+  },
+});
+
+if (!response.ok) {
+  throw new Error(`Identity request failed: ${response.status}`);
+}
+
+const identity = await response.json();
+console.log(identity.permissions); // ["finance.read", "finance.write", ...]
+```
+</CodeGroup>
+
+---
+
+### Response `200 OK`
+
+<ResponseField name="sub" type="string" required>
+  The stable, unique identifier for this principal within MAVULA. This is the `sub` claim from the JWT and is safe to use as a persistent reference to the operator in your own data stores.
+</ResponseField>
+
+<ResponseField name="tenant_id" type="string" required>
+  The identifier of the tenant this principal belongs to. All resources and operations in Ledger Core and Workbench are scoped to this tenant. You should not allow cross-tenant operations regardless of token claims.
+</ResponseField>
+
+<ResponseField name="institution_id" type="string" required>
+  The identifier of the financial institution within the tenant. Operations authorized by this identity apply within this institution's data boundary.
+</ResponseField>
+
+<ResponseField name="branch_id" type="string">
+  The identifier of the branch the operator is associated with. Not present for institution-level principals (such as `institution_admin`) or for service clients.
+</ResponseField>
+
+<ResponseField name="roles" type="string[]" required>
+  The operator's assigned roles within their institution. Each role maps to a predefined permission set. Possible values:
+
+  <Expandable title="Available roles">
+    | Role | Description |
+    |------|-------------|
+    | `institution_admin` | Full administrative access within the institution. Can manage users, configuration, and all financial operations. |
+    | `operations_maker` | Can initiate financial transactions and jobs but cannot approve or authorize them. |
+    | `operations_checker` | Can review and approve transactions and jobs initiated by an `operations_maker`. |
+    | `compliance_officer` | Access to compliance data, reports, and management functions. |
+    | `auditor` | Read-only access to audit logs, transactions, and observability data. |
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="permissions" type="string[]" required>
+  The resolved, effective set of permissions carried by this identity. These are the permissions you should evaluate in your application logic to gate access to specific operations. Possible values:
+
+  <Expandable title="All permission values">
+    | Permission | What it authorizes |
+    |------------|-------------------|
+    | `finance.read` | Read financial resources — accounts, transactions, balances — within the operator's tenant. |
+    | `finance.write` | Create and mutate financial resources — initiate transactions, create entries. |
+    | `finance.approve` | Approve or authorize pending transactions submitted by a maker. |
+    | `configuration.write` | Modify institution-level configuration, including product and account type definitions. |
+    | `compliance.manage` | Manage compliance rules, watchlists, and generate compliance reports. |
+    | `audit.read` | Read audit logs and event history for the institution. |
+    | `identity.admin` | Manage operator identities, roles, and credentials within the institution. |
+    | `workbench.read` | Read Workbench jobs, schedules, and their execution history. |
+    | `workbench.jobs.write` | Create, update, and cancel Workbench jobs and schedules. |
+    | `observability.read` | Access platform metrics, traces, and operational dashboards. |
+    | `internal.worker` | Service-to-service authorization for approved backend workers. Not issued to human operators. |
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="client_id" type="string">
+  The OAuth client identifier used to obtain this token. Present for both operator and service principal tokens. Useful for auditing which application a request originated from.
+</ResponseField>
+
+---
+
+### Response example
+
+```json
+{
+  "sub": "operator_01HXYZ3K9MFGQ7R2B4N8P",
+  "tenant_id": "tenant_mz_01",
+  "institution_id": "institution_bim_maputo",
+  "branch_id": "branch_maputo_central",
+  "roles": ["operations_maker"],
+  "permissions": [
+    "finance.read",
+    "finance.write",
+    "workbench.read",
+    "workbench.jobs.write"
+  ],
+  "client_id": "institutional-portal"
+}
+```
+
+---
+
+### Error response `401 Unauthorized`
+
+```json
+{
+  "statusCode": 401,
+  "message": "Bearer token is missing, expired, or invalid.",
+  "error": "Unauthorized"
+}
+```
+
+---
+
+## Using permissions to authorize operations
+
+The `permissions` array is the authoritative source for what the current principal is allowed to do across MAVULA's APIs. You should evaluate it in your application layer before presenting operations to the operator or forwarding requests downstream.
+
+<Note>
+  Scopes constrain what a token is permitted to request. The `permissions` array on the `/api/v1/me` response is the resolved, role-derived set of capabilities for this specific operator within their institution. Both must align: a token with `finance.write` scope belonging to an operator without the `finance.write` permission will be rejected by Ledger Core.
+</Note>
+
+The following table maps permissions to the operations they gate in MAVULA's downstream APIs:
+
+| Permission | Ledger Core | Workbench |
+|------------|------------|-----------|
+| `finance.read` | Read accounts, list transactions, fetch balances | — |
+| `finance.write` | Create transaction entries, initiate transfers | — |
+| `finance.approve` | Authorize and approve pending transactions | — |
+| `workbench.read` | — | List jobs, read job status and history |
+| `workbench.jobs.write` | — | Create, update, and cancel jobs and schedules |
+| `configuration.write` | Manage account types and product definitions | — |
+| `compliance.manage` | — | — |
+| `audit.read` | Read transaction audit log | Read job execution history |
+| `observability.read` | Access metrics and health endpoints | Access pipeline metrics |
+
+<Warning>
+  Do not rely solely on client-side permission checks. Always enforce authorization on the server side by validating the access token and its claims on every request to a protected Ledger Core or Workbench endpoint. The `permissions` array from `/api/v1/me` is provided to help you build accurate operator interfaces — it does not replace server-side enforcement.
+</Warning>
+
+### Example: Checking permissions before an operation
+
+```typescript
+const identity = await fetchEffectiveIdentity(accessToken);
+
+if (!identity.permissions.includes('finance.write')) {
+  throw new ForbiddenError(
+    'This operator does not have permission to initiate transactions.'
+  );
+}
+
+// Proceed with the Ledger Core transaction request
+await ledgerCore.createTransaction({
+  tenantId: identity.tenant_id,
+  institutionId: identity.institution_id,
+  // ...
+});
+```

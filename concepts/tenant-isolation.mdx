@@ -1,0 +1,52 @@
+---
+title: "Tenant Isolation and Data Boundaries"
+sidebarTitle: "Tenant Isolation"
+description: "Learn how MAVULA scopes every API call to your authenticated tenant and enforces strict row-level data boundaries across all platform services."
+---
+
+Every API call you make to MAVULA is automatically scoped to the tenant bound to your access token — there is no tenant selector field in the URL or the request body. The moment your token is validated, the platform knows exactly which institutional context you are operating in, and that context governs every read and write for the lifetime of that request. Understanding this model is essential for building integrations that are both correct and secure.
+
+## How tenant scope is derived from your JWT
+
+When you authenticate against `identity.mavula.dev`, MAVULA's Identity Access service validates your credentials and issues a **tenant-bound JWT**. That token encodes your tenant identity, roles, and permissions as private claims. Every downstream service — whether `ledger.mavula.dev`, `workbench.mavula.dev`, or any other — validates the token's signature, issuer, audience, and expiry before allowing the request to proceed.
+
+The pipeline for a typical API call looks like this:
+
+1. **Token issuance** — Identity Access authenticates your client and signs a tenant-bound JWT.
+2. **Token validation** — The target service verifies the signature, issuer, audience, and expiry.
+3. **Permission resolution** — Effective roles and permissions are resolved for your tenant.
+4. **Transaction context** — The database transaction receives your tenant identifier as its operating context.
+5. **Row-level security** — PostgreSQL RLS policies filter every read and reject any cross-tenant write attempt.
+
+Because scope is derived entirely from the token, you never need to pass a `tenantId` parameter. Attempting to do so will have no effect on authorization — only the token matters.
+
+<Note>
+  Knowing another tenant's resource identifier (an account ID, a batch ID, etc.) does not grant access to that resource. Cross-tenant identifiers are treated as absent by row-level security, which means they surface as `404 Not Found` rather than `403 Forbidden`. Do not interpret a `404` on a known identifier as evidence that the resource does not exist — it may simply be outside your tenant boundary.
+</Note>
+
+## Row-level isolation guarantees
+
+Row-level security (RLS) is enforced at the database layer, independent of application-level authorization checks. This means that even if an application bug bypassed permission resolution, the database would still reject the operation. The two enforcement layers are additive:
+
+| Layer | Mechanism | What it prevents |
+| --- | --- | --- |
+| Application authorization | JWT claim validation, role and permission checks | Malformed requests, missing permissions, self-approval violations |
+| Database RLS | PostgreSQL policy on every tenant-scoped table | Cross-tenant reads, cross-tenant writes, data leakage under application error |
+
+## Integration rules
+
+When you build against the MAVULA API, follow these rules to keep your integration correctly isolated:
+
+- **One credential per institutional context.** Use a dedicated tenant-bound credential for each institutional environment (e.g., separate credentials for production and staging). Never share a single token across contexts.
+- **Include the tenant in every cache key.** If you cache API responses, the effective tenant identifier must be part of the cache key. Failing to do so risks serving one tenant's data to another when credentials change.
+- **Never forward untrusted tenant identifiers.** Do not accept a `tenantId` value from an untrusted client (e.g., a browser or third-party webhook) and forward it as an authorization context to MAVULA. Authorization must flow from the token, not from client-supplied parameters.
+- **Treat `404` as a possible boundary signal.** A `404` on a resource you expect to exist may indicate a tenant mismatch, not a missing resource. Verify your token's tenant context before concluding the resource is absent.
+- **Propagate correlation IDs, not credentials.** When tracing a request across your own services or opening a support ticket, pass along the `X-Correlation-Id` header value. Never include access tokens, client secrets, or raw JWTs in logs or issue reports.
+
+<Warning>
+  Never log your JWT, client secret, or any full authorization header. If you suspect a credential has been exposed, rotate it immediately via `workbench.mavula.dev` and invalidate any cached tokens derived from it.
+</Warning>
+
+<Tip>
+  During integration development, use MAVULA's sandbox environment with a dedicated set of test credentials. Sandbox tenants are fully isolated from production — row-level security applies in exactly the same way, so your isolation testing in sandbox is a reliable indicator of production behaviour.
+</Tip>

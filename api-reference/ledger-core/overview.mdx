@@ -1,0 +1,79 @@
+---
+title: "Ledger Core API Reference"
+sidebarTitle: "Overview"
+description: "The MAVULA Ledger Core API is the financial source of truth for tenant-scoped accounts, adjustments, configuration, and read projections."
+---
+
+The Ledger Core API is the authoritative financial system within the MAVULA platform. It manages tenant-scoped accounts, enforces immutable financial history, orchestrates maker-checker approval workflows, and exposes eventually consistent read projections for reporting and operational search. All state mutations are idempotent, tenant-isolated, and audit-logged.
+
+## Base URL
+
+```text
+https://ledger.mavula.dev
+```
+
+## Authentication
+
+Every endpoint requires a valid Bearer JWT in the `Authorization` header. Tokens are issued by the MAVULA identity service and scoped to a specific tenant and permission set.
+
+```bash
+Authorization: Bearer <your_access_token>
+```
+
+Requests with a missing, expired, or invalid token receive a `401 Unauthorized` response. Requests with a valid token that lacks the required permission receive a `403 Forbidden`.
+
+## Required headers for mutations
+
+All state-mutating endpoints (`POST`, `PUT`, `DELETE`) require the following headers:
+
+| Header | Required | Description |
+|---|---|---|
+| `Idempotency-Key` | **Yes** | A unique, stable identifier for the operation (16–128 chars, `[A-Za-z0-9._:-]+`). Replaying an identical key and payload returns the original response without re-executing. Replaying a key with a different payload returns `409 Conflict`. |
+| `X-Correlation-ID` | Recommended | A trace identifier forwarded to all downstream services. The server generates one when omitted, but supplying your own simplifies log correlation. |
+
+<Warning>
+Never reuse an `Idempotency-Key` for a different payload. Doing so returns a `409 Conflict` and the original operation is not retried.
+</Warning>
+
+## Endpoint groups
+
+The Ledger Core API is organised into five functional groups:
+
+| Group | Base path | Description |
+|---|---|---|
+| **Accounts** | `/api/accounts` | Create tenant-scoped accounts; read account details, real-time balances, and cursor-paginated statements. |
+| **Account Lifecycle** | `/api/accounts/{accountId}/status-transitions`, `/api/account-lifecycle-requests` | Submit `FREEZE`, `UNFREEZE`, and `CLOSE` transitions through a mandatory maker-checker approval flow. |
+| **Financial Adjustments** | `/api/financial-adjustment-requests` | Submit `REVERSAL` and `CORRECTION` requests against posted transactions or journal entries without mutating the immutable original record. Requires a separate approver. |
+| **Configuration** | `/api/products`, `/api/products/{productId}/rules`, `/api/schemas`, `/api/workflows` | Define financial products, eligibility rules, entity schemas, and configurable workflow automations for your institution. |
+| **Projections** | `/api/projections` | Query eventually consistent read models for loan activity, ledger activity, and product publication state. Monitor projection checkpoint lag via `/api/projections/status`. |
+
+## Permissions
+
+Permissions are embedded in the Bearer JWT as scopes. The table below summarises the permission model used across all groups:
+
+| Permission | Grants |
+|---|---|
+| `finance.read` | Read accounts, balances, statements, lifecycle requests, adjustment requests, products, schemas, workflows, and projections. |
+| `finance.write` | Create accounts, submit lifecycle transitions, submit adjustment requests, and execute workflows. |
+| `finance.approve` | Approve or reject pending lifecycle and adjustment requests. The approving principal must differ from the submitting principal. |
+| `configuration.write` | Create or update products, rules, schemas, and workflows. |
+
+## Error responses
+
+All errors return a JSON body conforming to the following shape:
+
+```json
+{
+  "statusCode": 403,
+  "error": "Forbidden",
+  "message": "Permission denied: finance.approve required"
+}
+```
+
+| Status | Meaning |
+|---|---|
+| `400` | Request contract violation or invalid `Idempotency-Key` format. |
+| `401` | Bearer token is missing, expired, invalid, or issued for another audience. |
+| `403` | Permission, maker-checker, institution, or tenant policy denied the operation. |
+| `404` | Tenant-scoped resource was not found. |
+| `409` | State conflict or `Idempotency-Key` reused with a different payload. |

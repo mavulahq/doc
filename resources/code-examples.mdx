@@ -1,0 +1,212 @@
+---
+title: "Code Examples and Integration Resources"
+sidebarTitle: "Code Examples"
+description: "Reusable TypeScript patterns, a Postman collection, and OpenAPI contracts to help you integrate MAVULA API v1 correctly from day one."
+---
+
+Every MAVULA integration shares a small set of concerns that must be addressed before you write your first business-logic call: how you acquire and manage bearer tokens, how you attach tracing and idempotency headers, how you handle monetary values without floating-point drift, and how you recover gracefully when a request fails. The resources on this page give you a ready-made Postman collection to explore the API interactively, three OpenAPI contracts you can use to generate typed clients, and a TypeScript reference implementation that wires all of these concerns together in one place.
+
+## Integration Checklist
+
+Before sending your first request to a production environment, confirm each of the following is handled in your HTTP client layer. Centralizing these concerns in a single client wrapper means every call in your codebase automatically inherits correct behavior.
+
+| Concern | What to implement |
+| --- | --- |
+| **Secrets** | Load credentials from a runtime secret store or environment injection — never hard-code them in source |
+| **HTTP timeouts** | Set explicit connect and response deadlines on every request |
+| **Monetary values** | Use a decimal or arbitrary-precision type; serialize amounts as strings over the wire |
+| **Retries** | Bounded exponential backoff with jitter — do not retry indefinitely |
+| **Idempotency** | Generate a stable `Idempotency-Key` per logical command and reuse it on retries |
+| **Tracing** | Propagate `X-Correlation-ID` on every request so support teams can trace flows end-to-end |
+| **Log hygiene** | Redact bearer tokens, client secrets, and regulated personal data before writing to any log sink |
+
+## Postman Collection
+
+The MAVULA repository ships a versioned Postman collection that covers the Identity, Ledger, and Workbench APIs. Import it into Postman and create a **private environment** — never a shared or team-visible one — that holds your credentials.
+
+<CardGroup cols={2}>
+  <Card
+    title="MAVULA-API-v1.postman_collection.json"
+    icon="box-archive"
+    href="https://github.com/mavulahq/developer-docs/blob/main/examples/postman/MAVULA-API-v1.postman_collection.json"
+  >
+    Download or fork the versioned Postman collection from the developer-docs repository.
+  </Card>
+  <Card
+    title="Configure your environment"
+    icon="sliders"
+  >
+    Set the following variables in a private Postman environment: `identity_base_url`, `ledger_base_url`, `workbench_base_url`, `client_id`, `client_secret`, and `access_token`.
+  </Card>
+</CardGroup>
+
+The collection pre-populates `Idempotency-Key` and `X-Correlation-ID` headers using Postman's `{{$guid}}` dynamic variable so every request you send is correctly formed out of the box.
+
+## OpenAPI Reference Contracts
+
+Three OpenAPI contracts describe the full public surface of MAVULA API v1. You can use any of them with code-generation tooling (`openapi-generator`, `oazapfts`, `kiota`, etc.) to produce a typed client in your preferred language. If you operate in a regulated build pipeline, pin the SHA-256 digest of each downloaded contract to detect upstream changes.
+
+<CardGroup cols={3}>
+  <Card
+    title="Identity Access"
+    icon="id-badge"
+    href="https://github.com/mavulahq/developer-docs/blob/main/openapi/identity-access.public.v1.yaml"
+  >
+    Authentication, token introspection, and the effective-identity endpoint (`/api/v1/me`).
+  </Card>
+  <Card
+    title="Ledger Core"
+    icon="building-columns"
+    href="https://github.com/mavulahq/developer-docs/blob/main/openapi/ledger-core.public.v1.yaml"
+  >
+    Account lifecycle, status transitions, balances, and posting commands.
+  </Card>
+  <Card
+    title="Workbench"
+    icon="wrench"
+    href="https://github.com/mavulahq/developer-docs/blob/main/openapi/workbench.public.v1.yaml"
+  >
+    Platform status reads and operational workbench endpoints.
+  </Card>
+</CardGroup>
+
+## TypeScript Client Setup
+
+The example below shows how to construct a reusable HTTP client that satisfies every item in the integration checklist above. It centralizes header injection so you never accidentally omit `Authorization`, `Idempotency-Key`, or `X-Correlation-ID` on a mutation.
+
+### Idempotency Key Helper
+
+Generate a stable key for each logical command. On a retry you **reuse the same key** — do not generate a new one — so the server can detect and safely deduplicate the duplicate request.
+
+```typescript
+import { randomUUID } from "crypto";
+
+/**
+ * Returns a new v4 UUID suitable for use as an Idempotency-Key.
+ * Capture the result before your first attempt and reuse it on all
+ * retries of the same logical command.
+ */
+export function generateIdempotencyKey(): string {
+  return randomUUID();
+}
+```
+
+### Client Factory
+
+```typescript
+import { randomUUID } from "crypto";
+
+interface MavulaClientOptions {
+  /** Bearer token obtained from the Identity service. */
+  accessToken: string;
+  /**
+   * Optional correlation ID to propagate an existing trace.
+   * If omitted a fresh UUID is generated for every request.
+   */
+  correlationId?: string;
+}
+
+interface RequestOptions {
+  /** Stable key for this logical command — reuse on retries. */
+  idempotencyKey?: string;
+  /** Override the per-client correlation ID for a single call. */
+  correlationId?: string;
+  /** Additional headers merged on top of the defaults. */
+  headers?: Record<string, string>;
+  /** Request body for POST / PATCH / PUT calls. */
+  body?: unknown;
+  /** Fetch signal for timeout / cancellation. */
+  signal?: AbortSignal;
+}
+
+/**
+ * Creates a thin fetch wrapper that attaches the three mandatory
+ * MAVULA headers on every outbound request.
+ */
+export function createMavulaClient(options: MavulaClientOptions) {
+  const { accessToken, correlationId: defaultCorrelationId } = options;
+
+  async function request<T>(
+    url: string,
+    method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
+    requestOptions: RequestOptions = {}
+  ): Promise<T> {
+    const {
+      idempotencyKey,
+      correlationId = defaultCorrelationId ?? randomUUID(),
+      headers: extraHeaders = {},
+      body,
+      signal,
+    } = requestOptions;
+
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${accessToken}`,
+      "X-Correlation-ID": correlationId,
+      "Content-Type": "application/json",
+      ...extraHeaders,
+    };
+
+    // Idempotency-Key is required for all mutating requests.
+    if (idempotencyKey) {
+      headers["Idempotency-Key"] = idempotencyKey;
+    }
+
+    const response = await fetch(url, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal,
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(
+        `MAVULA API error ${response.status} on ${method} ${url}: ${errorBody}`
+      );
+    }
+
+    return response.json() as Promise<T>;
+  }
+
+  return {
+    get: <T>(url: string, opts?: RequestOptions) =>
+      request<T>(url, "GET", opts),
+    post: <T>(url: string, body: unknown, opts?: RequestOptions) =>
+      request<T>(url, "POST", { ...opts, body }),
+    patch: <T>(url: string, body: unknown, opts?: RequestOptions) =>
+      request<T>(url, "PATCH", { ...opts, body }),
+    del: <T>(url: string, opts?: RequestOptions) =>
+      request<T>(url, "DELETE", opts),
+  };
+}
+```
+
+### Usage Example — Create an Account
+
+```typescript
+import { createMavulaClient, generateIdempotencyKey } from "./mavulaClient";
+
+const client = createMavulaClient({
+  accessToken: process.env.MAVULA_ACCESS_TOKEN!,
+});
+
+// Capture the key before the first attempt.
+const idempotencyKey = generateIdempotencyKey();
+
+const account = await client.post(
+  "https://ledger.mavula.dev/api/accounts",
+  {
+    customer_id: "customer_001",
+    product_id: "current_account_mzn",
+    name: "Operating account",
+    currency: "MZN",
+  },
+  { idempotencyKey }
+);
+
+console.log("Created account:", account);
+```
+
+<Note>
+  Always initialize the client once per token lifetime and share the instance across your application. Avoid constructing a new client instance per request, as doing so makes it harder to enforce consistent timeouts and logging across your codebase.
+</Note>

@@ -1,0 +1,95 @@
+---
+title: "Roles and Permissions in MAVULA"
+sidebarTitle: "Roles & Permissions"
+description: "Understand MAVULA's six built-in roles, their permission sets, and how maker-checker enforcement works in financial workflows."
+---
+
+MAVULA's authorization model is built on least privilege and separation of duties. A role is a named collection of permissions that maps to a specific institutional responsibility. When you call any protected operation, MAVULA evaluates the permissions carried by your bearer token against the permissions declared on that operation — if the intersection is empty, the request is rejected with a `403`. You should always assign the minimum role that satisfies the operator's actual duties, and verify the effective permissions of any token before issuing financial commands.
+
+## Built-in roles
+
+The six built-in roles cover the full range of institutional duties from read-only observation through platform administration and automated service integration.
+
+| Role | Typical responsibility | Core permissions |
+|---|---|---|
+| `operations_viewer` | Read operational and financial state | `finance.read` |
+| `operations_maker` | Submit controlled changes | `finance.read`, `finance.write` |
+| `operations_checker` | Approve or reject controlled changes | `finance.read`, `finance.approve` |
+| `compliance_officer` | Review and generate regulated outputs | `finance.read`, `compliance.manage` |
+| `platform_administrator` | Manage tenant configuration and access | Explicit administrative permissions only |
+| `service_integration` | Execute a specific machine workflow | Narrow scopes for one integration |
+
+<Info>
+  The `platform_administrator` role does not implicitly carry `finance.write` or `finance.approve`. Administrative permissions are scoped to tenant configuration and access management, not to day-to-day financial operations. This separation ensures that the person managing access cannot also submit or approve financial transactions.
+</Info>
+
+## Permission reference
+
+The table below maps the full set of MAVULA permissions to the operations they gate.
+
+| Permission | What it enables |
+|---|---|
+| `finance.read` | Read accounts, balances, transactions, and financial state |
+| `finance.write` | Submit account creation, transactions, and lifecycle mutations |
+| `finance.approve` | Approve or reject maker-submitted changes awaiting authorization |
+| `compliance.manage` | Access and generate regulated compliance outputs |
+| `configuration.write` | Modify tenant-level configuration settings |
+| `identity.admin` | Manage operator identities and role assignments within the tenant |
+| `workbench.read` | Read job status and operational outputs |
+| `workbench.jobs.write` | Submit and manage asynchronous operational jobs |
+| `observability.read` | Read metrics, traces, and audit log entries |
+| `internal.worker` | Invoke protected service callbacks (service integration only) |
+
+## The maker-checker rule
+
+Certain operations in MAVULA — account lifecycle changes and financial adjustments — require two distinct authenticated operators: one to submit and one to approve. **The principal that submits a request cannot approve the same request.** MAVULA enforces this constraint at the API level.
+
+In practice this means:
+
+- An `operations_maker` can call the mutation endpoint. The request enters a pending state.
+- A different authenticated operator with the `finance.approve` permission (typically an `operations_checker`) must then call the approval endpoint using their own token.
+- If the same operator token attempts both the submission and the approval, the approval will be rejected.
+
+<Warning>
+  Do not attempt to work around the maker-checker rule by sharing credentials, tokens, or client secrets between operators. MAVULA tracks the authenticated subject (`sub`) on both the maker and checker actions. Shared credentials will produce compliance violations that are visible in the audit log.
+</Warning>
+
+## Verify access at runtime
+
+Before issuing financial commands in a new session, confirm that your token carries the roles and permissions you expect by calling `GET /api/v1/me` on Identity Access.
+
+```bash
+curl -sS https://identity.mavula.dev/api/v1/me \
+  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
+```
+
+A typical response for an `operations_maker` looks like:
+
+```json
+{
+  "sub": "operator_01",
+  "tenant_id": "tenant_01",
+  "institution_id": "institution_01",
+  "branch_id": "branch_maputo",
+  "roles": ["operations_maker"],
+  "permissions": ["finance.read", "finance.write", "workbench.read", "workbench.jobs.write"],
+  "client_id": "institutional_portal"
+}
+```
+
+Check the `roles` and `permissions` arrays before assuming any operation is available. Token claims are derived from the persisted identity state at the time of issuance — if an administrator changes a role assignment after the token was issued, the change will not be reflected until the token is rotated.
+
+## Handling 403 responses
+
+A `403 Forbidden` response is an authorization decision, not a transient error. It means the authenticated principal does not have the permission required for the requested operation at this point in time.
+
+<Note>
+  Do not retry a `403` automatically. Do not exchange it for a more privileged service credential. A `403` indicates a genuine access-control boundary, and automated retry or credential escalation in response to it is a security misconfiguration.
+</Note>
+
+When you encounter a `403`, follow this resolution path:
+
+1. Call `GET /api/v1/me` to confirm the effective roles and permissions of the current token.
+2. Identify the permission required by the operation from the API reference (listed in `x-mavula-permissions` on each operation in the OpenAPI contract).
+3. If the required permission is legitimately needed, request a role assignment from your platform administrator through your organization's access-management process.
+4. Obtain a new token after the role assignment is updated — the existing token will not reflect the change.

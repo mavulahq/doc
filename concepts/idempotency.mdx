@@ -1,0 +1,158 @@
+---
+title: "Idempotency Keys and Safe Retries"
+sidebarTitle: "Idempotency"
+description: "Use idempotency keys to make POST requests retry-safe and prevent duplicate financial commands across network failures or timeouts."
+---
+
+Networks fail, connections time out, and processes restart — but a payment instruction or account creation must only happen once. MAVULA's idempotency system lets you retry any mutating request with confidence by binding a unique key to the result of that command. If the server has already processed your request, it returns the original result instead of executing the operation a second time. Getting this right is one of the most important aspects of building a reliable financial integration.
+
+## What an idempotency key is
+
+An idempotency key is a client-generated string that uniquely identifies one logical mutation within your tenant and within the scope of the target operation. You supply it as a request header:
+
+```http
+Idempotency-Key: 018f4e3b-7c2a-7000-9f1d-3b4a5c6d7e8f
+```
+
+MAVULA persists a **durable receipt** that binds the key to three things: the request fingerprint (HTTP method, path, and body), your tenant context, and the result. Once a receipt exists, any subsequent request using the same key returns the stored result immediately — no matter how many times you retry.
+
+<Note>
+  Idempotency keys are scoped to your tenant and to the specific operation path. The same key value used against `POST /api/accounts` and `POST /api/transfers` are treated as independent receipts and do not conflict with each other.
+</Note>
+
+## How to generate an idempotency key
+
+Generate a **version-7 UUID** (time-ordered) for every new logical command. Most languages and platforms have native or well-maintained UUID libraries:
+
+<CodeGroup>
+
+```typescript TypeScript
+import { v7 as uuidv7 } from 'uuid';
+
+const idempotencyKey = uuidv7();
+// e.g. "018f4e3b-7c2a-7000-9f1d-3b4a5c6d7e8f"
+```
+
+```python Python
+import uuid
+
+idempotency_key = str(uuid.uuid7())
+# e.g. "018f4e3b-7c2a-7000-9f1d-3b4a5c6d7e8f"
+```
+
+```bash cURL
+IDEMPOTENCY_KEY=$(python3 -c "import uuid; print(uuid.uuid4())")
+
+curl -X POST https://ledger.mavula.dev/api/accounts \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Idempotency-Key: $IDEMPOTENCY_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "Operating Account", "currency": "USD" }'
+```
+
+</CodeGroup>
+
+Use UUIDs rather than human-readable strings or sequential IDs. A UUID's collision probability is negligible, it carries no sensitive information, and it is safe to include in logs.
+
+## When to reuse vs. generate a new key
+
+The decision rule is simple: **reuse the key when you are retrying the same command; generate a new key when you are issuing a new command.**
+
+| Situation | Action |
+| --- | --- |
+| Request timed out before you received a response | Retry with the **same key and same payload** |
+| Request returned a `5xx` error | Retry with the **same key and same payload** |
+| Request returned a `4xx` error (except `409`) | Fix the problem, generate a **new key**, and resubmit |
+| You want to create a second distinct resource | Generate a **new key** with the new payload |
+| A previous attempt succeeded and you want confirmation | Replay with the **same key** — the receipt is returned |
+
+The critical scenario is an **ambiguous timeout**: you sent a request, never received a response, and do not know whether it was processed. In this case, always retry with the original key and original payload. Generating a new key risks creating a duplicate command — precisely what idempotency is designed to prevent.
+
+## Durable receipt semantics
+
+Once MAVULA accepts a command (HTTP `200` or `201`), the receipt is durable. You can re-submit the same key at any point in the future and receive the original accepted result. This is true even if the server was restarted between your first attempt and your retry.
+
+For **asynchronous operations** (such as batch processing jobs), the receipt identifies the same job that was originally enqueued. You still need to poll the job or batch status resource to determine the final outcome — the receipt guarantees you are tracking the right job, not that the job has completed.
+
+```http
+POST https://ledger.mavula.dev/api/transfers
+Authorization: Bearer <token>
+Idempotency-Key: 018f4e3b-7c2a-7000-9f1d-3b4a5c6d7e8f
+Content-Type: application/json
+
+{
+  "sourceAccountId": "acct_01J4X7...",
+  "destinationAccountId": "acct_01J4X8...",
+  "amount": 500000,
+  "currency": "USD"
+}
+```
+
+On the first call, this creates the transfer. On every subsequent call with the same key, MAVULA returns the original response — no second transfer is created.
+
+## What happens when you reuse a key with a different payload
+
+If you send a request with an existing idempotency key but a **different HTTP method, path, or body**, MAVULA returns `409 Conflict`:
+
+```json
+{
+  "statusCode": 409,
+  "message": "idempotency key is already bound to a different request",
+  "error": "Conflict"
+}
+```
+
+This is a safety mechanism, not an error to retry. It means the key has already been used for a different command. Do not retry the `409` — instead, generate a new key for your new command. If you received a `409` unexpectedly, audit where the key was previously used before proceeding.
+
+<Warning>
+  Never generate a new idempotency key after an ambiguous timeout and then submit a different payload. You will bypass the duplicate-prevention guarantee and may create unintended duplicate financial commands.
+</Warning>
+
+## Retry budget guidance
+
+Apply exponential backoff with jitter and a finite attempt ceiling. A reasonable starting point:
+
+```typescript TypeScript
+async function postWithRetry(url: string, payload: object, idempotencyKey: string) {
+  const MAX_ATTEMPTS = 5;
+  const BASE_DELAY_MS = 250;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Idempotency-Key': idempotencyKey,   // same key on every retry
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),         // same payload on every retry
+      });
+
+      if (response.ok) return response;
+
+      // Do not retry on 4xx (except 429)
+      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+        throw new Error(`Non-retryable error: ${response.status}`);
+      }
+    } catch (err) {
+      if (attempt === MAX_ATTEMPTS) throw err;
+    }
+
+    const jitter = Math.random() * BASE_DELAY_MS;
+    const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1) + jitter;
+    await new Promise(resolve => setTimeout(resolve, delay));
+  }
+}
+```
+
+Key points from the example above:
+
+- The `Idempotency-Key` and request body **never change** across retries.
+- `4xx` errors (other than `429 Too Many Requests`) are not retried — correct the problem and use a new key.
+- `429` responses include a `Retry-After` header; respect it rather than backing off arbitrarily.
+- Always preserve your `X-Correlation-Id` across the full business flow so that all retry attempts are traceable as one logical operation.
+
+<Tip>
+  If you need to investigate a command after all retry attempts are exhausted, open a support request with the idempotency key, the correlation ID, and the timestamps of each attempt. Do not reuse the key for a new command during the investigation.
+</Tip>

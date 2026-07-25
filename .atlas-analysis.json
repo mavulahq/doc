@@ -1,0 +1,140 @@
+{
+  "projectType": "api-service",
+  "projectName": "MAVULA",
+  "projectDescription": "MAVULA is a financial platform providing institutional-grade APIs for identity, ledger operations, and asynchronous payment orchestration.",
+  "theme": "luma",
+  "primaryColor": "#071a45",
+  "lightColor": null,
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication",
+              "roles-permissions",
+              "request-reliability"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/tenant-isolation",
+              "concepts/idempotency",
+              "concepts/errors",
+              "concepts/projections"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/account-setup",
+              "guides/account-lifecycle",
+              "guides/financial-adjustments",
+              "guides/payment-jobs",
+              "guides/configuration",
+              "guides/legacy-batches"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "resources/code-examples",
+              "resources/limitations"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Identity Access",
+            "pages": [
+              "api-reference/identity-access/overview",
+              "api-reference/identity-access/openid-configuration",
+              "api-reference/identity-access/token",
+              "api-reference/identity-access/identity"
+            ]
+          },
+          {
+            "group": "Ledger Core",
+            "pages": [
+              "api-reference/ledger-core/overview",
+              "api-reference/ledger-core/accounts",
+              "api-reference/ledger-core/account-lifecycle",
+              "api-reference/ledger-core/financial-adjustments",
+              "api-reference/ledger-core/configuration",
+              "api-reference/ledger-core/projections"
+            ]
+          },
+          {
+            "group": "Workbench",
+            "pages": [
+              "api-reference/workbench/overview",
+              "api-reference/workbench/jobs",
+              "api-reference/workbench/legacy-interoperability",
+              "api-reference/workbench/status"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "OAuth 2.0 / OIDC authorization with PKCE and client credentials flows",
+    "Tenant-scoped financial ledger with double-entry accounting",
+    "Maker-checker controls for account lifecycle changes and financial adjustments",
+    "Idempotent mutations with durable server-side receipts",
+    "Asynchronous payment job orchestration (capture, disbursement, settlement, reconciliation)",
+    "Configurable financial products, rules, entity schemas, and workflows",
+    "Eventually-consistent read projections for loan and ledger activity",
+    "Legacy interoperability: regulatory exports and legacy batch imports",
+    "Row-level tenant isolation across all API surfaces",
+    "Structured error responses with stable HTTP status codes"
+  ],
+  "publicApiSurface": [
+    "GET /.well-known/openid-configuration",
+    "GET /jwks",
+    "GET /auth — start operator authorization (PKCE)",
+    "POST /token — exchange credentials for tokens",
+    "POST /token/revocation — revoke a token",
+    "GET /api/v1/me — read effective identity",
+    "GET /api/accounts — list accounts",
+    "POST /api/accounts — create an account",
+    "GET /api/accounts/{accountId}/balance — read account balance",
+    "GET /api/accounts/{accountId}/statement — read account statement",
+    "POST /api/accounts/{accountId}/status-transitions — submit lifecycle transition",
+    "GET /api/account-lifecycle-requests — list lifecycle requests",
+    "POST /api/account-lifecycle-requests/{requestId}/approve",
+    "POST /api/account-lifecycle-requests/{requestId}/reject",
+    "POST /api/financial-adjustment-requests — submit REVERSAL/CORRECTION",
+    "GET /api/financial-adjustment-requests — list adjustment requests",
+    "POST /api/financial-adjustment-requests/{requestId}/approve",
+    "POST /api/financial-adjustment-requests/{requestId}/reject",
+    "GET /api/products — list financial products",
+    "POST /api/products — create or update a product",
+    "GET /api/products/{productId}/rules — list product rules",
+    "POST /api/products/{productId}/rules — create a product rule",
+    "GET /api/schemas — list entity schemas",
+    "POST /api/schemas — create an entity schema",
+    "GET /api/workflows — list workflows",
+    "POST /api/workflows — create a workflow",
+    "POST /api/workflows/{workflowId}/execute — execute a workflow",
+    "GET /api/projections/status — read projection checkpoints",
+    "GET /api/projections/loan-activity — list loan activity projections",
+    "GET /api/projections/ledger-activity — list ledger activity projections",
+    "POST /api/jobs — submit a payment job",
+    "GET /api/jobs/{jobId} — read job status",
+    "POST /api/regulatory-exports — request a regulatory export",
+    "POST /api/legacy-imports — stage and validate a legacy file",
+    "GET /api/legacy-batches — list legacy batches",
+    "GET /api/status — read platform status",
+    "GET /api/status/queues — read queue status"
+  ]
+}

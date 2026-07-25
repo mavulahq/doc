@@ -1,0 +1,79 @@
+---
+title: "Error Responses and Recovery Guide"
+sidebarTitle: "Errors"
+description: "Understand every HTTP error status MAVULA returns, what causes each one, and the safe recovery action to take in your integration."
+---
+
+When MAVULA returns an error, the HTTP status code is the primary signal for your control flow. Every error response includes a stable JSON body with a `statusCode`, a human-readable `message`, and an `error` label. The most important piece of data to retain — especially for intermittent or unexpected errors — is the correlation ID returned in the `X-Correlation-Id` response header. That identifier links your request to MAVULA's internal traces and is required when contacting support.
+
+## HTTP status reference
+
+| Status | Category | Typical cause | Recovery action |
+| --- | --- | --- | --- |
+| `400 Bad Request` | Invalid request | Missing required field, malformed identifier, unsupported state transition, invalid currency code | Correct the request payload and resubmit with a **new** idempotency key |
+| `401 Unauthorized` | Authentication failure | Missing `Authorization` header, expired JWT, invalid token signature | Obtain a fresh token from `identity.mavula.dev`; do not replay credentials in logs or error reports |
+| `403 Forbidden` | Authorization failure | Insufficient role or permission, self-approval violation, action not permitted for your tenant type | Use an authorized principal with the required role; review the permission model in the Identity docs |
+| `404 Not Found` | Resource absent or hidden | Resource does not exist, or it exists in a different tenant's boundary | Verify that your token's tenant context is correct; a cross-tenant identifier surfaces as `404`, not `403` |
+| `409 Conflict` | Conflicting state | Current resource state prevents the operation, or the idempotency key is already bound to a different request | Read the current resource state before deciding whether to resubmit; never retry a `409` blindly |
+| `429 Too Many Requests` | Rate limited | Your tenant has exceeded its request budget for the operation or endpoint | Pause and resume after the duration indicated in the `Retry-After` response header |
+| `5xx Server Error` | Service failure | Temporary processing failure, upstream dependency unavailable, infrastructure issue | Retry the request with the **same** idempotency key using exponential backoff; the operation has not been committed |
+
+<Note>
+  `5xx` errors are safe to retry with the original idempotency key because the server has not committed the command. If a `5xx` persists beyond your retry budget, contact support with the correlation ID — do not generate a new key until you have confirmed the original command did not succeed.
+</Note>
+
+## Example error response body
+
+All MAVULA error responses follow a consistent JSON envelope. Here is a `409 Conflict` example produced when an idempotency key is reused with a different request fingerprint:
+
+```json
+{
+  "statusCode": 409,
+  "message": "idempotency key is already bound to a different request",
+  "error": "Conflict"
+}
+```
+
+The `message` field is intended for developers — it is stable enough to aid debugging but should not be displayed directly to end users. Parse `statusCode` for programmatic control flow.
+
+## Reading the correlation ID
+
+Every response from MAVULA — including error responses — includes an `X-Correlation-Id` header. Capture this value and attach it to your internal logs alongside the request details:
+
+```http
+HTTP/1.1 409 Conflict
+X-Correlation-Id: 3f7a1b2c-89de-4f01-a234-56b7c8d9e0f1
+Content-Type: application/json
+
+{
+  "statusCode": 409,
+  "message": "idempotency key is already bound to a different request",
+  "error": "Conflict"
+}
+```
+
+When you open a support request via `workbench.mavula.dev`, include:
+
+- The `X-Correlation-Id` value
+- The timestamp of the request (UTC)
+- The operation name and resource ID (e.g., `POST /api/transfers`, transfer ID if known)
+- Your idempotency key (the UUID itself, not the full header)
+
+<Warning>
+  **Never include the following in a support request, log line, or issue tracker:** access tokens, client secrets, raw JWT values, personal data, or full financial payloads. Any of these would constitute a credential or data exposure. If you believe a token has been exposed, rotate it immediately from `workbench.mavula.dev`.
+</Warning>
+
+## Safe error reporting checklist
+
+Use this checklist to verify that your error-handling code handles failures without creating new security or compliance problems:
+
+- [ ] Log the `X-Correlation-Id`, HTTP status, and operation path — not the `Authorization` header.
+- [ ] Strip or mask any `amount`, `accountNumber`, or PII fields before writing to your log pipeline.
+- [ ] On `401`, trigger a token refresh flow — do not cache the original error response or retry without a new token.
+- [ ] On `409`, read the current state of the resource before deciding whether to submit a new command.
+- [ ] On `429`, wait for the `Retry-After` duration before resuming — do not implement a fixed sleep that ignores the header.
+- [ ] On `5xx`, retry with the **same** idempotency key. Do not generate a new key unless you have confirmed via the status endpoint that the original command did not succeed.
+
+<Tip>
+  If your integration operates an automated alert pipeline, trigger on sustained `5xx` rates or repeated `401` responses rather than individual occurrences. A single `503` during a deploy window is expected; five consecutive `503` responses on the same idempotency key warrant escalation.
+</Tip>

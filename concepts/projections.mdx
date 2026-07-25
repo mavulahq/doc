@@ -1,0 +1,119 @@
+---
+title: "Read Projections and Eventual Consistency"
+sidebarTitle: "Projections"
+description: "Learn how MAVULA's eventually consistent read projections work, when to use them, and how to detect and handle projection lag safely."
+---
+
+When you submit a command to MAVULA — opening an account, posting a ledger entry, publishing a product — the system processes it against the authoritative domain model and acknowledges success synchronously. Behind that command surface, MAVULA also maintains a set of **read projections**: derived views built from committed domain events that power operational search, reporting, and activity feeds. These projections are eventually consistent, which means a successful command may not be immediately visible in a projection query. Understanding this distinction lets you choose the right data source for every use case in your integration.
+
+## What read projections are
+
+A read projection is a continuously updated read model that is separate from the command surface. Rather than querying the authoritative aggregate directly, you query a projection that has been pre-computed from the stream of domain events produced by your tenant's activity. This design allows projections to be optimised for flexible querying (filtering, sorting, pagination) without imposing that complexity on the write path.
+
+MAVULA exposes three projection types in API v1:
+
+| Projection | Description | Typical use case |
+| --- | --- | --- |
+| `loan-activity` | Time-ordered view of loan lifecycle events (originations, repayments, status transitions) | Loan servicing dashboards, regulatory reporting, audit trails |
+| `ledger-activity` | Chronological ledger entry feed across accounts within your tenant | Reconciliation, statement generation, accounting exports |
+| `product-publications` | Index of published product configurations and their effective periods | Product availability checks, rate-sheet queries, eligibility screening |
+
+## The consistency model
+
+The delay between a committed command and its appearance in a projection is typically small (milliseconds to low seconds), but it is not zero and is not bounded by a fixed SLA. You should build your integration to tolerate this gap rather than assume the projection is always current.
+
+The practical rule is:
+
+- **Use the authoritative endpoints** (`ledger.mavula.dev/api/accounts`, `/api/balances`, etc.) when you need immediate confirmation of a command's outcome — for example, immediately after posting a transfer and needing to confirm the resulting balance.
+- **Use projections** for operational queries where slight staleness is acceptable — for example, generating an end-of-day activity report, displaying a loan history feed, or checking published product rates.
+
+<Note>
+  Do not use a projection record as the basis for posting a new financial entry. Always derive financial commands from the authoritative account and balance endpoints. A projection may lag and produce a stale view that does not reflect recent commands.
+</Note>
+
+## Checking projection lag
+
+You can inspect the current health and lag of each projection at any time:
+
+```http
+GET https://ledger.mavula.dev/api/projections/status
+Authorization: Bearer <token>
+```
+
+The response reports the last processed event sequence number and an estimated lag for each named projection:
+
+```json
+{
+  "projections": [
+    {
+      "name": "loan-activity",
+      "lastProcessedEventId": "01J4X9BK00E2VG0000000001",
+      "lagMs": 120,
+      "status": "healthy"
+    },
+    {
+      "name": "ledger-activity",
+      "lastProcessedEventId": "01J4X9BK00E2VG0000000087",
+      "lagMs": 95,
+      "status": "healthy"
+    },
+    {
+      "name": "product-publications",
+      "lastProcessedEventId": "01J4X9BK00E2VG0000000012",
+      "lagMs": 80,
+      "status": "healthy"
+    }
+  ]
+}
+```
+
+<Warning>
+  A single transient lag reading is not a reliable signal. Projection catch-up after a brief pause or restart can produce a temporarily elevated `lagMs` value that resolves within seconds. Alert on **sustained** lag (e.g., lag consistently above your threshold for more than 60 seconds) rather than reacting to individual data points.
+</Warning>
+
+## Safe consumption rules
+
+Follow these rules when consuming projection data in your integration:
+
+- **Store the projection version on ingestion.** If your system does incremental reconciliation (e.g., fetching new ledger entries since your last sync), record the `lastProcessedEventId` or equivalent cursor from each response. Use it as the starting point for your next request to avoid re-processing events.
+- **Re-read by entity ID after a recent command.** If you issue a command (e.g., post a ledger entry) and immediately query the `ledger-activity` projection, the new entry may not yet appear. In time-sensitive flows, re-fetch the specific resource by its ID from the authoritative endpoint rather than waiting for the projection to catch up.
+- **Treat projection payloads as versioned public representations.** The shape of a projection response is a stable public API contract, not a window into MAVULA's internal event stream. Do not attempt to infer internal sequencing or reconstruct the event log from projection payloads.
+- **Never post financial entries from a projection record.** Projection data may be stale. All financial commands must be grounded in authoritative state from the primary account and balance endpoints.
+
+## Projections vs. primary endpoints — a quick reference
+
+<CodeGroup>
+
+```http Use projections for (search and reporting)
+# Fetch all ledger activity for a date range
+GET https://ledger.mavula.dev/api/projections/ledger-activity?from=2024-01-01&to=2024-01-31
+Authorization: Bearer <token>
+
+# Fetch loan activity feed for a specific loan
+GET https://ledger.mavula.dev/api/projections/loan-activity?loanId=loan_01J4X7...
+Authorization: Bearer <token>
+
+# Check currently published products
+GET https://workbench.mavula.dev/api/projections/product-publications?status=active
+Authorization: Bearer <token>
+```
+
+```http Use primary endpoints for (authoritative state)
+# Confirm current balance immediately after a transfer
+GET https://ledger.mavula.dev/api/accounts/acct_01J4X7.../balance
+Authorization: Bearer <token>
+
+# Fetch a specific account record
+GET https://ledger.mavula.dev/api/accounts/acct_01J4X7...
+Authorization: Bearer <token>
+
+# Check projection health before a reconciliation run
+GET https://ledger.mavula.dev/api/projections/status
+Authorization: Bearer <token>
+```
+
+</CodeGroup>
+
+<Tip>
+  When building a reconciliation pipeline, check `/api/projections/status` at the start of each run. If `lagMs` for the relevant projection is elevated, consider delaying the run or supplementing projection results with direct entity lookups to ensure completeness.
+</Tip>

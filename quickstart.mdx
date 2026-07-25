@@ -7,91 +7,10 @@ description: "Exchange an OAuth 2.0 authorization code for a bearer token, inspe
 This guide uses the OAuth 2.0 authorization code flow with PKCE, which is the correct grant type for human operators authenticating through a browser or native interface. Before you run the first step, complete the authorization redirect described in the [Authentication](/authentication) guide to obtain your `AUTHORIZATION_CODE` and `ORIGINAL_CODE_VERIFIER`. Once you have those in hand, the four steps below take you from a raw code to a funded account balance in minutes.
 
 <Note>
-  **Token handling.** Keep access tokens in memory only — never write them to disk, logs, environment files committed to source control, or support requests. Rotate refresh tokens atomically: persist the replacement before discarding the previous value. Authorization codes are single-use; discard them immediately after the exchange in Step 1.
+  **Token handling.** Keep access tokens in memory only - never write them to disk, logs, environment files committed to source control, or support requests. Rotate refresh tokens atomically: persist the replacement before discarding the previous value. Authorization codes are single-use; discard them immediately after the exchange in Step 1.
 </Note>
 
 <Steps>
-
-  ### Exchange the authorization code
-
-  Send your authorization code, redirect URI, and PKCE verifier to the token endpoint. The response contains an `access_token` you will use for every subsequent request, a short-lived `id_token` carrying identity claims, and a `refresh_token` for silent renewal.
-
-  ```bash
-  curl -sS -X POST https://identity.mavula.dev/token \
-    -H 'Content-Type: application/x-www-form-urlencoded' \
-    --data-urlencode 'grant_type=authorization_code' \
-    --data-urlencode 'client_id=operator-console' \
-    --data-urlencode 'code=AUTHORIZATION_CODE' \
-    --data-urlencode 'redirect_uri=https://ops.example.com/callback' \
-    --data-urlencode 'code_verifier=ORIGINAL_CODE_VERIFIER'
-  ```
-
-  Store the returned `access_token` in a variable for the steps that follow:
-
-  ```bash
-  export MAVULA_ACCESS_TOKEN="<access_token from response>"
-  ```
-
-  ### Inspect the effective identity
-
-  Before issuing any financial command, confirm that your token carries the expected tenant, roles, and permissions. Call `GET /api/v1/me` on Identity Access and review the response carefully.
-
-  ```bash
-  curl -sS https://identity.mavula.dev/api/v1/me \
-    -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
-  ```
-
-  A successful response looks like this:
-
-  ```json
-  {
-    "sub": "operator_01",
-    "tenant_id": "tenant_01",
-    "institution_id": "institution_01",
-    "branch_id": "branch_maputo",
-    "roles": ["operations_maker"],
-    "permissions": ["finance.read", "finance.write", "workbench.read", "workbench.jobs.write"],
-    "client_id": "institutional_portal"
-  }
-  ```
-
-  If the `roles` or `permissions` array does not reflect what you expect, contact your platform administrator before proceeding. Sending financial commands with an under-scoped token will return `403` responses that are not retryable.
-
-  ### Create an account
-
-  With a confirmed `operations_maker` role (or any role carrying `finance.write`), you can create a new account in Ledger Core. Always include an `Idempotency-Key` on mutating requests so that a retry on network failure does not produce a duplicate account.
-
-  ```bash
-  curl -sS -X POST https://ledger.mavula.dev/api/accounts \
-    -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
-    -H 'Content-Type: application/json' \
-    -H 'Idempotency-Key: 76b05d81-c975-4daf-b054-72b2eb3a749a' \
-    -H 'X-Correlation-ID: 406d8359-a53a-4d2a-a908-628798ece3b3' \
-    -d '{"customer_id":"customer_001","product_id":"current_account_mzn","name":"Operating account","currency":"MZN"}'
-  ```
-
-  The response body contains the new account's `id`. Export it for use in Step 4:
-
-  ```bash
-  export ACCOUNT_ID="<id from response>"
-  ```
-
-  <Tip>
-    Generate a fresh UUID for each new logical command. Reuse the exact same `Idempotency-Key` value only when retrying the identical method, path, and request body after a network timeout or a 5xx error.
-  </Tip>
-
-  ### Read the balance
-
-  Once the account exists, you can query its current balance at any time. Balance reads do not require an `Idempotency-Key`, but you should still include `X-Correlation-ID` so that the read can be correlated with the creation request in your observability tooling.
-
-  ```bash
-  curl -sS https://ledger.mavula.dev/api/accounts/$ACCOUNT_ID/balance \
-    -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
-    -H 'X-Correlation-ID: 406d8359-a53a-4d2a-a908-628798ece3b3'
-  ```
-
-  The response returns the account's current and available balances as decimal strings alongside the ISO 4217 currency code. Treat all monetary values as strings in your application layer to avoid floating-point precision errors.
-
 </Steps>
 
 ## Next steps
@@ -102,13 +21,16 @@ You now have a working token, a confirmed identity, a live account, and a balanc
   <Card title="Authentication" icon="lock" href="/authentication">
     Understand PKCE in depth, set up client credentials for backend services, and implement refresh token rotation.
   </Card>
+
   <Card title="Roles & Permissions" icon="shield-check" href="/roles-permissions">
     Review the six built-in roles and their permission sets, and learn how maker-checker enforcement works.
   </Card>
+
   <Card title="Request Reliability" icon="arrows-rotate" href="/request-reliability">
     Apply exponential backoff, idempotency keys, and correlation IDs to make your integration resilient in production.
   </Card>
+
   <Card title="Account Lifecycle" icon="building-columns" href="/guides/account-lifecycle">
-    Control account state transitions — block, unblock, and close accounts — with proper maker-checker approval flows.
+    Control account state transitions - block, unblock, and close accounts - with proper maker-checker approval flows.
   </Card>
 </CardGroup>

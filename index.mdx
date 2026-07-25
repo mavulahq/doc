@@ -1,21 +1,24 @@
 ---
 title: "MAVULA Developer Platform"
 sidebarTitle: "Home"
-description: "MAVULA provides institutional-grade APIs for financial operations—identity, ledger management, and payment orchestration in one platform."
+description: "MAVULA provides institutional-grade APIs for financial operations-identity, ledger management, and payment orchestration in one platform."
 ---
 
-MAVULA gives your institution a unified API surface for financial operations. Authenticate operators and services through Identity Access, manage accounts and ledger state through Ledger Core, and orchestrate asynchronous payment jobs through Workbench—all with tenant isolation, idempotency guarantees, and maker-checker controls built in.
+MAVULA gives your institution a unified API surface for financial operations. Authenticate operators and services through Identity Access, manage accounts and ledger state through Ledger Core, and orchestrate asynchronous payment jobs through Workbench-all with tenant isolation, idempotency guarantees, and maker-checker controls built in.
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
     Exchange your first token, create an account, and read a balance in four steps.
   </Card>
+
   <Card title="Authentication" icon="lock" href="/authentication">
     Set up OAuth 2.0 with PKCE or client credentials for your operators and services.
   </Card>
+
   <Card title="API Reference" icon="code" href="/api-reference/identity-access/overview">
     Explore all three API surfaces: Identity Access, Ledger Core, and Workbench.
   </Card>
+
   <Card title="Guides" icon="book-open" href="/guides/account-setup">
     Step-by-step walkthroughs for accounts, adjustments, jobs, and more.
   </Card>
@@ -27,16 +30,15 @@ MAVULA separates financial concerns across three distinct API services:
 
 <CardGroup cols={3}>
   <Card title="Identity Access" icon="user-shield" href="/api-reference/identity-access/overview">
-    OAuth 2.0 and OpenID Connect. Issues JWTs carrying tenant, role, and permission claims.
-    Base URL: `identity.mavula.dev`
+    OAuth 2.0 and OpenID Connect. Issues JWTs carrying tenant, role, and permission claims. Base URL: `identity.mavula.dev`
   </Card>
+
   <Card title="Ledger Core" icon="building-columns" href="/api-reference/ledger-core/overview">
-    Financial source of truth. Accounts, balances, adjustments, products, and projections.
-    Base URL: `ledger.mavula.dev`
+    Financial source of truth. Accounts, balances, adjustments, products, and projections. Base URL: `ledger.mavula.dev`
   </Card>
+
   <Card title="Workbench" icon="gears" href="/api-reference/workbench/overview">
-    Async job orchestration, legacy interoperability, and platform status.
-    Base URL: `workbench.mavula.dev`
+    Async job orchestration, legacy interoperability, and platform status. Base URL: `workbench.mavula.dev`
   </Card>
 </CardGroup>
 
@@ -44,7 +46,7 @@ MAVULA separates financial concerns across three distinct API services:
 
 <Steps>
   <Step title="Get a token">
-    Use the authorization code + PKCE flow (for human operators) or client credentials (for backend services) to obtain a bearer token from Identity Access.
+    Use the authorization code \+ PKCE flow (for human operators) or client credentials (for backend services) to obtain a bearer token from Identity Access.
   </Step>
   <Step title="Verify your identity">
     Call `GET /api/v1/me` to confirm your token's tenant, roles, and permissions before making financial calls.

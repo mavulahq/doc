@@ -4,7 +4,7 @@ sidebarTitle: "Projections"
 description: "Learn how MAVULA read projections work, when to use them versus authoritative endpoints, and how to detect and handle projection lag safely."
 ---
 
-When you submit a command to MAVULA — opening an account, posting a ledger entry, publishing a product — the system processes it against the authoritative domain model and acknowledges success synchronously. Behind that command surface, MAVULA also maintains a set of **read projections**: derived views built from committed domain events that power operational search, reporting, and activity feeds. These projections are eventually consistent, which means a successful command may not be immediately visible in a projection query. Understanding this distinction lets you choose the right data source for every use case in your integration.
+When you submit a command to MAVULA - opening an account, posting a ledger entry, publishing a product - the system processes it against the authoritative domain model and acknowledges success synchronously. Behind that command surface, MAVULA also maintains a set of **read projections**: derived views built from committed domain events that power operational search, reporting, and activity feeds. These projections are eventually consistent, which means a successful command may not be immediately visible in a projection query. Understanding this distinction lets you choose the right data source for every use case in your integration.
 
 ## What read projections are
 
@@ -24,8 +24,8 @@ The delay between a committed command and its appearance in a projection is typi
 
 The practical rule is:
 
-- **Use the authoritative endpoints** (`ledger.mavula.dev/api/accounts`, `/api/accounts/{accountId}/balance`, etc.) when you need immediate confirmation of a command's outcome — for example, immediately after posting a transaction and needing to confirm the resulting balance.
-- **Use projections** for operational queries where slight staleness is acceptable — for example, generating an end-of-day activity report, displaying a loan history feed, or checking published product rates.
+- **Use the authoritative endpoints** (`ledger.mavula.dev/api/accounts`, `/api/accounts/{accountId}/balance`, etc.) when you need immediate confirmation of a command's outcome - for example, immediately after posting a transaction and needing to confirm the resulting balance.
+- **Use projections** for operational queries where slight staleness is acceptable - for example, generating an end-of-day activity report, displaying a loan history feed, or checking published product rates.
 
 <Note>
   Do not use a projection record as the basis for posting a new financial entry. Always derive financial commands from the authoritative account and balance endpoints. A projection may lag and produce a stale view that does not reflect recent commands.
@@ -78,7 +78,7 @@ Follow these rules when consuming projection data in your integration:
 - **Treat projection payloads as versioned public representations.** The shape of a projection response is a stable public API contract. Do not attempt to infer internal sequencing or reconstruct the event log from projection payloads.
 - **Never post financial entries from a projection record.** Projection data may be stale. All financial commands must be grounded in authoritative state from the primary account and balance endpoints.
 
-## Projections vs. primary endpoints — a quick reference
+## Projections vs. primary endpoints - a quick reference
 
 <CodeGroup>
 

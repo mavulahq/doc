@@ -4,12 +4,12 @@ sidebarTitle: "Configuration"
 description: "Create products, attach rules, define entity schemas, and compose workflows to manage all tenant financial configuration through versioned API resources."
 ---
 
-All financial behaviour in MAVULA is driven by tenant-level configuration — products define what an account can do, rules govern how transactions are evaluated, entity schemas describe your business data structures, and workflows orchestrate controlled actions around named triggers. Every configuration resource is versioned, tenant-scoped, and mutated through the same API you use for runtime operations. Apply changes in a non-production tenant first, and retain the `X-Correlation-ID` you use for every mutation so you can trace the exact change that caused a downstream effect.
+All financial behaviour in MAVULA is driven by tenant-level configuration - products define what an account can do, rules govern how transactions are evaluated, entity schemas describe your business data structures, and workflows orchestrate controlled actions around named triggers. Every configuration resource is versioned, tenant-scoped, and mutated through the same API you use for runtime operations. Apply changes in a non-production tenant first, and retain the `X-Correlation-ID` you use for every mutation so you can trace the exact change that caused a downstream effect.
 
 ## Configuration surfaces
 
 | Resource | Operations | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | Products | list, read, upsert | Define financial product behaviour and configuration |
 | Product rules | list, create, update, delete, seed defaults | Attach ordered conditions and actions to a product |
 | Entity schemas | list, create, import, export, preset | Define validated business data shapes for your institution |
@@ -20,39 +20,6 @@ All financial behaviour in MAVULA is driven by tenant-level configuration — pr
 Before making any configuration change in a tenant, follow these steps in order:
 
 <Steps>
-
-### Export or read the current configuration
-
-Retrieve the existing state of the resource you intend to change. For a full tenant snapshot, use the jurisdiction defaults endpoint:
-
-```bash
-curl -sS https://ledger.mavula.dev/api/products/config \
-  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
-```
-
-For a specific product:
-
-```bash
-curl -sS https://ledger.mavula.dev/api/products/PRODUCT_ID \
-  -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
-```
-
-### Validate the proposed change against the OpenAPI schema
-
-Before sending any mutation, validate your payload against the published OpenAPI schema. The `CreateRule`, `CreateSchema`, and `CreateWorkflow` schemas each enforce strict `additionalProperties: false` constraints — any unknown field is rejected with `400`.
-
-### Use a unique idempotency and correlation identifier
-
-Every mutating request (`POST`, `PUT`) must include a fresh `Idempotency-Key` header and an `X-Correlation-ID` header. Record both values alongside the change you are making. A correlation ID is your primary diagnostic handle if a change needs to be investigated or rolled back.
-
-### Read the resulting resource and version
-
-After a successful mutation, fetch the resource and record its new `version` number. Configuration objects carry an integer version that increments on every change. Store the version in your change log — it is the fastest way to confirm that a specific change was applied.
-
-### Verify downstream projections before exposing the change operationally
-
-Product publication projections at `GET /api/projections/product-publications/{productId}` reflect the eventually-consistent published state of a product. Wait for the projection to reflect your change before enabling the product for live account creation or rule evaluation.
-
 </Steps>
 
 ## Create a product

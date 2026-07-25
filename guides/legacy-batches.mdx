@@ -4,101 +4,11 @@ sidebarTitle: "Legacy Batches"
 description: "Generate auditable regulatory exports and validate legacy import files through Workbench, backed by durable batch receipts that survive worker restarts."
 ---
 
-Workbench orchestrates two distinct batch workflows: regulatory exports and legacy import validation. A regulatory export produces a signed artifact of transaction history for a given period, records its delivery to a supervisory authority, and retains a durable receipt for audit purposes. A legacy import validates a file of historical records for structural correctness without creating any financial mutations in the ledger. Both workflows produce a `LegacyBatchReceipt` that persists across worker retries and process restarts — record the batch `id` as soon as you receive it.
+Workbench orchestrates two distinct batch workflows: regulatory exports and legacy import validation. A regulatory export produces a signed artifact of transaction history for a given period, records its delivery to a supervisory authority, and retains a durable receipt for audit purposes. A legacy import validates a file of historical records for structural correctness without creating any financial mutations in the ledger. Both workflows produce a `LegacyBatchReceipt` that persists across worker retries and process restarts - record the batch `id` as soon as you receive it.
 
 ## Workflow A: Regulatory export
 
 <Steps>
-
-### Request the export
-
-Submit a `POST` request to `https://workbench.mavula.dev/api/regulatory-exports`. You must supply the reporting period (`period_from`, `period_to` as ISO 8601 dates), the legal basis code for the export, and a `retention_until` date that satisfies the required ten-year minimum retention period.
-
-```bash
-curl -sS -X POST https://workbench.mavula.dev/api/regulatory-exports \
-  -H "Authorization: Bearer $COMPLIANCE_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H "Idempotency-Key: 0e03ef93-09e0-413f-b49a-e59f93fa881f" \
-  -H "X-Correlation-ID: bd351e46-e436-4dd2-b9de-75e940629961" \
-  -d '{
-    "period_from": "2026-06-01",
-    "period_to": "2026-06-30",
-    "legal_basis_code": "MZ-AML-14-2023-ART-43",
-    "retention_until": "2036-06-30"
-  }'
-```
-
-The API responds with a `LegacyBatchReceipt` in `QUEUED` state:
-
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "tenant_id": "tenant_mz_001",
-  "institution_id": "institution_bm_001",
-  "direction": "EXPORT",
-  "contract_id": "legacy.regulatory_transaction_export@1",
-  "state": "QUEUED",
-  "correlation_id": "bd351e46-e436-4dd2-b9de-75e940629961",
-  "attempts": 0,
-  "max_attempts": 3,
-  "created_at": "2026-07-10T08:00:00Z",
-  "updated_at": "2026-07-10T08:00:00Z"
-}
-```
-
-**Persist the `id` immediately.** This UUID is your durable receipt identifier.
-
-### Poll the batch receipt until generation completes
-
-Use `GET https://workbench.mavula.dev/api/legacy-batches/{batchId}` to track the batch state. The receipt survives worker retries and process restarts — you can query it at any time to recover status.
-
-```bash
-curl -sS https://workbench.mavula.dev/api/legacy-batches/BATCH_ID \
-  -H "Authorization: Bearer $COMPLIANCE_TOKEN"
-```
-
-Poll with bounded exponential back-off until the `state` field reaches `GENERATED`. The full state progression is: `QUEUED` → `PROCESSING` → `GENERATED` → `DELIVERED`. Terminal failure states are `REJECTED` and `FAILED`.
-
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "state": "GENERATED",
-  "record_count": 4821,
-  "total_amount_minor": "978540000",
-  "content_sha256": "a3f1e2d4b5c6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2",
-  "updated_at": "2026-07-10T08:04:33Z"
-}
-```
-
-### Download the artifact
-
-Once the batch is in `GENERATED` state, download the export file from `GET https://workbench.mavula.dev/api/legacy-batches/{batchId}/artifact`. Verify the response media type and compare the file's SHA-256 checksum against the `content_sha256` field in the receipt before transmitting the file to the authority.
-
-```bash
-curl -sS https://workbench.mavula.dev/api/legacy-batches/BATCH_ID/artifact \
-  -H "Authorization: Bearer $COMPLIANCE_TOKEN" \
-  -o regulatory_export_2026_06.zip
-```
-
-<Warning>
-  Only download the artifact after the batch reports `GENERATED` state. Attempting to download from a batch that is still `QUEUED` or `PROCESSING` will return a `404` or an incomplete file.
-</Warning>
-
-### Record authority delivery
-
-After you have delivered the artifact to the supervisory authority, record the delivery by calling `POST https://workbench.mavula.dev/api/regulatory-exports/{batchId}/delivery`. Supply the authority's acknowledgement reference and the timestamp of delivery. This call transitions the batch to `DELIVERED` state and creates an auditable delivery record.
-
-```bash
-curl -sS -X POST https://workbench.mavula.dev/api/regulatory-exports/BATCH_ID/delivery \
-  -H "Authorization: Bearer $COMPLIANCE_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H "Idempotency-Key: 076a329b-84f5-4f58-99ef-04ac14f3a343" \
-  -d '{
-    "authority_reference": "BM-2026-000184",
-    "delivered_at": "2026-07-10T09:30:00Z"
-  }'
-```
-
 </Steps>
 
 ## Workflow B: Legacy import validation
@@ -106,65 +16,10 @@ curl -sS -X POST https://workbench.mavula.dev/api/regulatory-exports/BATCH_ID/de
 Use the legacy import workflow to validate historical records from a prior system before any migration. You submit file metadata and import parameters, and Workbench validates every record against the contract schema, collecting a rejection report for records that fail.
 
 <Steps>
-
-### Submit the import for validation
-
-Call `POST https://workbench.mavula.dev/api/legacy-imports` using a `multipart/form-data` request and attach your US-ASCII fixed-width file as the `file` field. The file must be no larger than 10 MiB and contain no more than 5,000 detail records. The API creates a batch receipt in `QUEUED` state and begins asynchronous validation.
-
-```bash
-curl -sS -X POST https://workbench.mavula.dev/api/legacy-imports \
-  -H "Authorization: Bearer $MIGRATION_TOKEN" \
-  -H "Idempotency-Key: f8a1b2c3-d4e5-6789-abcd-ef0123456789" \
-  -H "X-Correlation-ID: 12345678-90ab-cdef-1234-567890abcdef" \
-  -F "file=@batch_001.txt;type=text/plain"
-```
-
-The response contains a `LegacyBatchReceipt` with `direction: "IMPORT"`. Record its `id`.
-
-### Poll until validation completes
-
-Use `GET https://workbench.mavula.dev/api/legacy-batches/{batchId}` to track progress. The batch moves through `QUEUED` → `PROCESSING` → `VALIDATED` (all records accepted) or `REJECTED` (one or more records failed validation).
-
-```bash
-curl -sS https://workbench.mavula.dev/api/legacy-batches/BATCH_ID \
-  -H "Authorization: Bearer $MIGRATION_TOKEN"
-```
-
-### Review rejections
-
-If the batch reaches `REJECTED` state, or even if it completes with partial failures, retrieve the full rejection report from `GET https://workbench.mavula.dev/api/legacy-batches/{batchId}/rejections`. Each rejection identifies the record number, the failing field, and an error code.
-
-```bash
-curl -sS https://workbench.mavula.dev/api/legacy-batches/BATCH_ID/rejections \
-  -H "Authorization: Bearer $MIGRATION_TOKEN"
-```
-
-```json
-{
-  "batch_id": "660f9511-f30c-52e5-b827-557766551111",
-  "rejections": [
-    {
-      "record": 142,
-      "field": "currency",
-      "code": "INVALID_CURRENCY_CODE",
-      "reference": "USD"
-    },
-    {
-      "record": 891,
-      "field": "account_id",
-      "code": "UNKNOWN_ACCOUNT_REFERENCE",
-      "reference": "ACC-LEGACY-7823"
-    }
-  ]
-}
-```
-
-Correct the source file based on the rejection codes, then resubmit with a new `Idempotency-Key`.
-
 </Steps>
 
 <Warning>
-  **Legacy import does NOT create financial mutations.** Validation acceptance — even a fully clean import with zero rejections — does not post transactions, create accounts, or alter ledger balances in Ledger Core. A separate, explicitly approved migration process is required for any financial effects. Never assume that a `VALIDATED` batch state means your data has been applied to live accounts.
+  **Legacy import does NOT create financial mutations.** Validation acceptance - even a fully clean import with zero rejections - does not post transactions, create accounts, or alter ledger balances in Ledger Core. A separate, explicitly approved migration process is required for any financial effects. Never assume that a `VALIDATED` batch state means your data has been applied to live accounts.
 </Warning>
 
 ## Recovery guidance
@@ -173,7 +28,7 @@ If your client did not receive a response (network timeout, connection drop), **
 
 1. **List existing batches** using `GET https://workbench.mavula.dev/api/legacy-batches` to locate your batch by approximate creation time or correlation ID.
 2. **Read the specific batch** once you have identified its `id`.
-3. **Retry a timed-out submission** only if no matching batch exists — and in that case, reuse the **original `Idempotency-Key`** with the **identical payload**. Using a different key for the same logical request creates a duplicate batch.
+3. **Retry a timed-out submission** only if no matching batch exists - and in that case, reuse the **original `Idempotency-Key`** with the **identical payload**. Using a different key for the same logical request creates a duplicate batch.
 
 <Tip>
   Always log your `Idempotency-Key` and `X-Correlation-ID` before sending a batch request. These two values are your primary recovery tools if a response is lost.

@@ -4,7 +4,7 @@ sidebarTitle: "Limitations"
 description: "A concise reference to every intentional boundary in MAVULA API v1, with practical guidance on designing your integration around each."
 ---
 
-MAVULA API v1 documents the implemented public interfaces that have met the platform's ownership, idempotency, failure-behavior, and compatibility review. Understanding where the current boundaries lie — and why they exist — means you can design your integration to work reliably within them rather than discovering edge cases in production. None of the items below reflect unplanned gaps; they are deliberate choices made to keep the public surface stable and auditable. The sections below explain each boundary and, where applicable, what you should do instead.
+MAVULA API v1 documents the implemented public interfaces that have met the platform's ownership, idempotency, failure-behavior, and compatibility review. Understanding where the current boundaries lie - and why they exist - means you can design your integration to work reliably within them rather than discovering edge cases in production. None of the items below reflect unplanned gaps; they are deliberate choices made to keep the public surface stable and auditable. The sections below explain each boundary and, where applicable, what you should do instead.
 
 ## Known Boundaries
 
@@ -21,7 +21,7 @@ MAVULA API v1 documents the implemented public interfaces that have met the plat
 </Accordion>
 
 <Accordion title="Projection reads are eventually consistent">
-  Read endpoints that return projected state — such as balance views and account summaries — are eventually consistent. They reflect committed commands but may lag slightly behind the most recent write.
+  Read endpoints that return projected state - such as balance views and account summaries - are eventually consistent. They reflect committed commands but may lag slightly behind the most recent write.
 
   **What to do instead:** Do not rely on a projection read to confirm that a command succeeded. The authoritative result of a command is the response you receive from the mutation endpoint itself, including any error or idempotency replay response. Use read projections for display, reporting, and non-critical decision-making only.
 </Accordion>
@@ -45,7 +45,7 @@ MAVULA API v1 documents the implemented public interfaces that have met the plat
 </Accordion>
 
 <Accordion title="Proposed interfaces are not yet public">
-  Events, endpoints, or data models that are under design review — including those that have not yet had their ownership, idempotency contract, failure behavior, and compatibility guarantees formally approved — are outside the public reference. They do not appear in the OpenAPI contracts and are not stable for integration.
+  Events, endpoints, or data models that are under design review - including those that have not yet had their ownership, idempotency contract, failure behavior, and compatibility guarantees formally approved - are outside the public reference. They do not appear in the OpenAPI contracts and are not stable for integration.
 
   **What to do instead:** Rely only on what is described in the three published OpenAPI contracts. If you need a capability that does not yet exist in the public surface, contact your MAVULA integration point of contact to understand the roadmap and avoid building against unstable internals.
 </Accordion>

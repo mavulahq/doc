@@ -11,7 +11,7 @@ Building a reliable integration with MAVULA requires three habits: sending the r
 Every call to a MAVULA API endpoint should include the following headers. Omitting required headers will produce a `400` or `401` response that is not retryable.
 
 | Header | Applies to | Requirement |
-|---|---|---|
+| --- | --- | --- |
 | `Authorization` | All protected operations | Bearer access token issued by Identity Access |
 | `Idempotency-Key` | Mutating operations (`POST`, `PATCH`, `PUT`, `DELETE`) | A stable UUID representing one logical command |
 | `X-Correlation-ID` | Every integration call | A stable trace identifier to correlate the request across service boundaries |
@@ -40,14 +40,14 @@ Generate a fresh UUID v4 for each new logical command. The key must be stable fo
   Do **not** generate a new idempotency key when retrying. Doing so causes Ledger Core to treat the retry as a new command, which can create duplicate accounts, duplicate transactions, or conflicting state changes. Reuse the key; let MAVULA deduplicate the effect.
 </Warning>
 
-If you send the same idempotency key with a different method, path, or body, MAVULA will return a `409 Conflict`. This is a non-retryable error — inspect the conflict, correct your request, and generate a new key for the corrected command.
+If you send the same idempotency key with a different method, path, or body, MAVULA will return a `409 Conflict`. This is a non-retryable error - inspect the conflict, correct your request, and generate a new key for the corrected command.
 
 ## Retry policy
 
 Not all errors are equal. Some are caused by transient infrastructure conditions and can be safely retried; others are deterministic rejections that will produce the same response no matter how many times you retry.
 
 | Result | Retry? | Action |
-|---|---|---|
+| --- | --- | --- |
 | Network timeout before any response is received | Yes | Retry with the **same** idempotency key |
 | `429 Too Many Requests` | Yes | Respect the `Retry-After` response header; add random jitter |
 | `500 Internal Server Error` | Yes | Exponential backoff with a bounded attempt count |
@@ -62,7 +62,7 @@ Not all errors are equal. Some are caused by transient infrastructure conditions
 | Accepted asynchronous job (`202`) | Poll | Read the status resource on Workbench; do not resubmit the job |
 
 <Note>
-  A `401` after a previously successful call usually means your access token has expired. Refresh it using your `refresh_token` grant, then replay the request. Do not retry a `401` without first obtaining a new token — the same expired token will produce the same `401` every time.
+  A `401` after a previously successful call usually means your access token has expired. Refresh it using your `refresh_token` grant, then replay the request. Do not retry a `401` without first obtaining a new token - the same expired token will produce the same `401` every time.
 </Note>
 
 ## Exponential backoff retry loop
@@ -90,11 +90,11 @@ throw new Error('retry budget exhausted');
 The backoff schedule this produces:
 
 | Attempt | Base delay | Max jitter | Approximate wait |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 0 → 1 | 250 ms | 100 ms | ~250–350 ms |
 | 1 → 2 | 500 ms | 100 ms | ~500–600 ms |
 | 2 → 3 | 1 000 ms | 100 ms | ~1 000–1 100 ms |
-| 3 → fail | — | — | Throw after four attempts |
+| 3 → fail | - | - | Throw after four attempts |
 
 Adjust the base delay and attempt count to match your latency budget and the criticality of the operation. For time-sensitive user-facing calls you might cap at three attempts with a tighter jitter window; for background batch jobs you might allow more attempts with a larger backoff ceiling.
 
@@ -104,6 +104,6 @@ Adjust the base delay and attempt count to match your latency budget and the cri
 
 ## Asynchronous jobs
 
-Some Workbench operations return `202 Accepted` immediately and complete asynchronously. For these, the correct pattern is to poll the status resource returned in the response — do not resubmit the original request. Resubmission with a new idempotency key will create a second job; resubmission with the same key will return the original `202` receipt.
+Some Workbench operations return `202 Accepted` immediately and complete asynchronously. For these, the correct pattern is to poll the status resource returned in the response - do not resubmit the original request. Resubmission with a new idempotency key will create a second job; resubmission with the same key will return the original `202` receipt.
 
 See [Idempotency and retries](/concepts/idempotency) for the full receipt and conflict semantics, including how MAVULA distinguishes between a duplicate submission and a genuine new command.

@@ -5,7 +5,7 @@
   "colors": {
     "primary": "#071a45"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/favicon.png",
   "navigation": {
     "tabs": [
       {
@@ -91,5 +91,9 @@
       "type": "github",
       "href": "https://github.com/mavulahq"
     }
+  },
+  "logo": {
+    "light": "/logo/light.png",
+    "dark": "/logo/dark.png"
   }
 }

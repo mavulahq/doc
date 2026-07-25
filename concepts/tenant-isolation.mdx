@@ -4,23 +4,23 @@ sidebarTitle: "Tenant Isolation"
 description: "Learn how MAVULA enforces tenant isolation, what the API contract guarantees, and how to build your integration with correct tenant boundaries."
 ---
 
-Every API call you make to MAVULA is automatically scoped to the tenant bound to your access token — there is no tenant selector field in the URL or the request body. The moment your token is validated, the platform knows exactly which institutional context you are operating in, and that context governs every read and write for the lifetime of that request. Understanding this model is essential for building integrations that are both correct and secure.
+Every API call you make to MAVULA is automatically scoped to the tenant bound to your access token - there is no tenant selector field in the URL or the request body. The moment your token is validated, the platform knows exactly which institutional context you are operating in, and that context governs every read and write for the lifetime of that request. Understanding this model is essential for building integrations that are both correct and secure.
 
 ## How tenant scope is derived from your JWT
 
-When you authenticate against `identity.mavula.dev`, MAVULA's Identity Access service validates your credentials and issues a **tenant-bound JWT**. That token encodes your tenant identity, roles, and permissions as private claims. Every downstream service — whether `ledger.mavula.dev`, `workbench.mavula.dev`, or any other — validates the token's signature, issuer, audience, and expiry before allowing the request to proceed.
+When you authenticate against `identity.mavula.dev`, MAVULA's Identity Access service validates your credentials and issues a **tenant-bound JWT**. That token encodes your tenant identity, roles, and permissions as private claims. Every downstream service - whether `ledger.mavula.dev`, `workbench.mavula.dev`, or any other - validates the token's signature, issuer, audience, and expiry before allowing the request to proceed.
 
 The pipeline for a typical API call looks like this:
 
-1. **Token issuance** — Identity Access authenticates your client and signs a tenant-bound JWT.
-2. **Token validation** — The target service verifies the signature, issuer, audience, and expiry.
-3. **Permission resolution** — Effective roles and permissions are resolved for your tenant.
-4. **Request execution** — The operation is performed within your tenant's data boundary.
+1. **Token issuance** - Identity Access authenticates your client and signs a tenant-bound JWT.
+2. **Token validation** - The target service verifies the signature, issuer, audience, and expiry.
+3. **Permission resolution** - Effective roles and permissions are resolved for your tenant.
+4. **Request execution** - The operation is performed within your tenant's data boundary.
 
-Because scope is derived entirely from the token, you never need to pass a `tenantId` parameter. Attempting to do so will have no effect on authorization — only the token matters.
+Because scope is derived entirely from the token, you never need to pass a `tenantId` parameter. Attempting to do so will have no effect on authorization - only the token matters.
 
 <Note>
-  Knowing another tenant's resource identifier (an account ID, a batch ID, etc.) does not grant access to that resource. Cross-tenant identifiers are treated as absent by the API, which means they surface as `404 Not Found` rather than `403 Forbidden`. Do not interpret a `404` on a known identifier as evidence that the resource does not exist — it may simply be outside your tenant boundary.
+  Knowing another tenant's resource identifier (an account ID, a batch ID, etc.) does not grant access to that resource. Cross-tenant identifiers are treated as absent by the API, which means they surface as `404 Not Found` rather than `403 Forbidden`. Do not interpret a `404` on a known identifier as evidence that the resource does not exist - it may simply be outside your tenant boundary.
 </Note>
 
 ## API contract guarantees
@@ -32,7 +32,7 @@ MAVULA enforces two independent layers of access control that together ensure st
 | Application authorization | JWT claim validation, role and permission checks | Malformed requests, missing permissions, self-approval violations |
 | Data boundary enforcement | Tenant-scoped access control on every resource | Cross-tenant reads, cross-tenant writes, data leakage under application error |
 
-These layers are additive: both must pass for any operation to succeed. An authorization failure at either layer results in a `403 Forbidden` or `404 Not Found` response — never in a partial result that crosses tenant lines.
+These layers are additive: both must pass for any operation to succeed. An authorization failure at either layer results in a `403 Forbidden` or `404 Not Found` response - never in a partial result that crosses tenant lines.
 
 ## Integration rules
 
@@ -49,5 +49,5 @@ When you build against the MAVULA API, follow these rules to keep your integrati
 </Warning>
 
 <Tip>
-  During integration development, use MAVULA's sandbox environment with a dedicated set of test credentials. Sandbox tenants are fully isolated from production — tenant boundary enforcement applies in exactly the same way, so your isolation testing in sandbox is a reliable indicator of production behaviour.
+  During integration development, use MAVULA's sandbox environment with a dedicated set of test credentials. Sandbox tenants are fully isolated from production - tenant boundary enforcement applies in exactly the same way, so your isolation testing in sandbox is a reliable indicator of production behaviour.
 </Tip>

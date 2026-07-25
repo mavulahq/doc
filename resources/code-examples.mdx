@@ -12,30 +12,24 @@ Before sending your first request to a production environment, confirm each of t
 
 | Concern | What to implement |
 | --- | --- |
-| **Secrets** | Load credentials from a runtime secret store or environment injection — never hard-code them in source |
+| **Secrets** | Load credentials from a runtime secret store or environment injection - never hard-code them in source |
 | **HTTP timeouts** | Set explicit connect and response deadlines on every request |
 | **Monetary values** | Use a decimal or arbitrary-precision type; serialize amounts as strings over the wire |
-| **Retries** | Bounded exponential backoff with jitter — do not retry indefinitely |
+| **Retries** | Bounded exponential backoff with jitter - do not retry indefinitely |
 | **Idempotency** | Generate a stable `Idempotency-Key` per logical command and reuse it on retries |
 | **Tracing** | Propagate `X-Correlation-ID` on every request so support teams can trace flows end-to-end |
 | **Log hygiene** | Redact bearer tokens, client secrets, and regulated personal data before writing to any log sink |
 
 ## Postman Collection
 
-The MAVULA repository ships a versioned Postman collection that covers the Identity, Ledger, and Workbench APIs. Import it into Postman and create a **private environment** — never a shared or team-visible one — that holds your credentials.
+The MAVULA repository ships a versioned Postman collection that covers the Identity, Ledger, and Workbench APIs. Import it into Postman and create a **private environment** - never a shared or team-visible one - that holds your credentials.
 
 <CardGroup cols={2}>
-  <Card
-    title="MAVULA-API-v1.postman_collection.json"
-    icon="box-archive"
-    href="https://github.com/mavulahq/developer-docs/blob/main/examples/postman/MAVULA-API-v1.postman_collection.json"
-  >
+  <Card title="MAVULA-API-v1.postman_collection.json" icon="box-archive" href="https://github.com/mavulahq/developer-docs/blob/main/examples/postman/MAVULA-API-v1.postman_collection.json">
     Download or fork the versioned Postman collection from the developer-docs repository.
   </Card>
-  <Card
-    title="Configure your environment"
-    icon="sliders"
-  >
+
+  <Card title="Configure your environment" icon="sliders">
     Set the following variables in a private Postman environment: `identity_base_url`, `ledger_base_url`, `workbench_base_url`, `client_id`, `client_secret`, and `access_token`.
   </Card>
 </CardGroup>
@@ -47,25 +41,15 @@ The collection pre-populates `Idempotency-Key` and `X-Correlation-ID` headers us
 Three OpenAPI contracts describe the full public surface of MAVULA API v1. You can use any of them with code-generation tooling (`openapi-generator`, `oazapfts`, `kiota`, etc.) to produce a typed client in your preferred language. If you operate in a regulated build pipeline, pin the SHA-256 digest of each downloaded contract to detect upstream changes.
 
 <CardGroup cols={3}>
-  <Card
-    title="Identity Access"
-    icon="id-badge"
-    href="https://github.com/mavulahq/developer-docs/blob/main/openapi/identity-access.public.v1.yaml"
-  >
+  <Card title="Identity Access" icon="id-badge" href="https://github.com/mavulahq/developer-docs/blob/main/openapi/identity-access.public.v1.yaml">
     Authentication, token introspection, and the effective-identity endpoint (`/api/v1/me`).
   </Card>
-  <Card
-    title="Ledger Core"
-    icon="building-columns"
-    href="https://github.com/mavulahq/developer-docs/blob/main/openapi/ledger-core.public.v1.yaml"
-  >
+
+  <Card title="Ledger Core" icon="building-columns" href="https://github.com/mavulahq/developer-docs/blob/main/openapi/ledger-core.public.v1.yaml">
     Account lifecycle, status transitions, balances, and posting commands.
   </Card>
-  <Card
-    title="Workbench"
-    icon="wrench"
-    href="https://github.com/mavulahq/developer-docs/blob/main/openapi/workbench.public.v1.yaml"
-  >
+
+  <Card title="Workbench" icon="wrench" href="https://github.com/mavulahq/developer-docs/blob/main/openapi/workbench.public.v1.yaml">
     Platform status reads and operational workbench endpoints.
   </Card>
 </CardGroup>
@@ -76,7 +60,7 @@ The example below shows how to construct a reusable HTTP client that satisfies e
 
 ### Idempotency Key Helper
 
-Generate a stable key for each logical command. On a retry you **reuse the same key** — do not generate a new one — so the server can detect and safely deduplicate the duplicate request.
+Generate a stable key for each logical command. On a retry you **reuse the same key** - do not generate a new one - so the server can detect and safely deduplicate the duplicate request.
 
 ```typescript
 import { randomUUID } from "crypto";
@@ -107,7 +91,7 @@ interface MavulaClientOptions {
 }
 
 interface RequestOptions {
-  /** Stable key for this logical command — reuse on retries. */
+  /** Stable key for this logical command - reuse on retries. */
   idempotencyKey?: string;
   /** Override the per-client correlation ID for a single call. */
   correlationId?: string;
@@ -181,7 +165,7 @@ export function createMavulaClient(options: MavulaClientOptions) {
 }
 ```
 
-### Usage Example — Create an Account
+### Usage Example - Create an Account
 
 ```typescript
 import { createMavulaClient, generateIdempotencyKey } from "./mavulaClient";

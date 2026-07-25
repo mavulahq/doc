@@ -1,10 +1,10 @@
 ---
 title: "MAVULA Authentication: OAuth 2.0 Grant Types Guide"
 sidebarTitle: "Authentication"
-description: "Choose the right OAuth 2.0 grant for your integration — PKCE for operators, client credentials for services, or refresh token rotation."
+description: "Choose the right OAuth 2.0 grant for your integration - PKCE for operators, client credentials for services, or refresh token rotation."
 ---
 
-Every MAVULA API call to a protected endpoint requires a bearer token issued by Identity Access at `https://identity.mavula.dev`. Identity Access implements OAuth 2.0 and OpenID Connect: it publishes its provider metadata at `/.well-known/openid-configuration` and its PS256 signing keys at `/jwks`. You should fetch and cache both at startup, and re-fetch signing keys whenever you encounter an unrecognised `kid` in a token header. Validate the token's issuer, audience, signature, and expiry on every protected boundary — do not skip validation even for internal service-to-service calls.
+Every MAVULA API call to a protected endpoint requires a bearer token issued by Identity Access at `https://identity.mavula.dev`. Identity Access implements OAuth 2.0 and OpenID Connect: it publishes its provider metadata at `/.well-known/openid-configuration` and its PS256 signing keys at `/jwks`. You should fetch and cache both at startup, and re-fetch signing keys whenever you encounter an unrecognised `kid` in a token header. Validate the token's issuer, audience, signature, and expiry on every protected boundary - do not skip validation even for internal service-to-service calls.
 
 <Note>
   Always validate the token issuer (`iss`), audience (`aud`), signature (PS256 against the `/jwks` keyset), and expiry (`exp`) before trusting any claims in an access token or ID token. MAVULA resource servers perform this validation; your own services must do the same if they consume MAVULA tokens directly.
@@ -15,7 +15,7 @@ Every MAVULA API call to a protected endpoint requires a bearer token issued by 
 MAVULA supports three OAuth 2.0 grant types. Select the one that matches your principal type and use case.
 
 | Grant | Principal | When to use |
-|---|---|---|
+| --- | --- | --- |
 | Authorization code with PKCE | Human operator | Browser or native operator interface where the user must authenticate interactively |
 | Client credentials | Institutional service | Backend-to-backend automation where no human is present at request time |
 | Refresh token | Existing operator session | Rotate a short-lived access token without repeating the interactive sign-in flow |
@@ -24,9 +24,9 @@ MAVULA supports three OAuth 2.0 grant types. Select the one that matches your pr
 
 The PKCE flow is the correct choice for any integration where a human operator authenticates through a browser or native application. It protects the authorization code in transit using a cryptographic challenge, so no client secret is required on the public client.
 
-**Step 1 — Generate the PKCE pair.** Before redirecting the operator, generate a cryptographically random `code_verifier` (a high-entropy string of 43–128 URL-safe characters). Derive the `code_challenge` by computing the Base64URL-encoded SHA-256 hash of the verifier. Store the verifier securely in the application session — you will need it for the token exchange.
+**Step 1 - Generate the PKCE pair.** Before redirecting the operator, generate a cryptographically random `code_verifier` (a high-entropy string of 43–128 URL-safe characters). Derive the `code_challenge` by computing the Base64URL-encoded SHA-256 hash of the verifier. Store the verifier securely in the application session - you will need it for the token exchange.
 
-**Step 2 — Redirect to `/auth`.** Construct the authorization URL and redirect the user agent:
+**Step 2 - Redirect to `/auth`.** Construct the authorization URL and redirect the user agent:
 
 ```text
 GET https://identity.mavula.dev/auth
@@ -41,7 +41,7 @@ GET https://identity.mavula.dev/auth
 
 The `state` value must be unique per request and verified on return to prevent request-forgery attacks. Generate it with a CSPRNG and bind it to the user session before the redirect.
 
-**Step 3 — Exchange the code once.** After Identity Access redirects the operator back to your `redirect_uri` with an authorization code, exchange it immediately. An authorization code is single-use; discard it after the exchange whether or not the request succeeds.
+**Step 3 - Exchange the code once.** After Identity Access redirects the operator back to your `redirect_uri` with an authorization code, exchange it immediately. An authorization code is single-use; discard it after the exchange whether or not the request succeeds.
 
 <CodeGroup>
 
@@ -79,7 +79,7 @@ const tokens = await response.json();
 
 ## Client credentials
 
-Use client credentials when a backend service needs to call MAVULA without a human operator present — for example, a scheduled reconciliation job or an event-driven processor. The service authenticates with its own `client_id` and `client_secret` and receives an access token scoped to machine workflows.
+Use client credentials when a backend service needs to call MAVULA without a human operator present - for example, a scheduled reconciliation job or an event-driven processor. The service authenticates with its own `client_id` and `client_secret` and receives an access token scoped to machine workflows.
 
 <Warning>
   Client credentials represent an approved internal worker identity. They do not substitute for operator authorization on Ledger Core or compliance operations. Do not use a service credential to bypass the maker-checker rule or to perform actions that require a human operator's explicit approval.
@@ -104,13 +104,13 @@ Use client credentials when a backend service needs to call MAVULA without a hum
       client_secret: process.env.MAVULA_CLIENT_SECRET!,
       scope: 'internal.worker',
     });
-
+    
     const response = await fetch('https://identity.mavula.dev/token', {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body,
     });
-
+    
     if (!response.ok) throw new Error(`token request failed: ${response.status}`);
     const tokens = await response.json();
     ```
@@ -135,7 +135,7 @@ curl -sS -X POST https://identity.mavula.dev/token \
 
 ## Revoking tokens
 
-Send any token that must no longer be accepted — for example on logout or credential rotation — to the revocation endpoint. A successful `200` response does not indicate whether the token existed; it only confirms the request was processed.
+Send any token that must no longer be accepted - for example on logout or credential rotation - to the revocation endpoint. A successful `200` response does not indicate whether the token existed; it only confirms the request was processed.
 
 ```bash
 curl -sS -X POST https://identity.mavula.dev/token/revocation \
@@ -151,7 +151,7 @@ Use `token_type_hint` to tell Identity Access whether you are revoking an `acces
 Scopes constrain what a token can do at the OAuth layer. The roles and permissions returned by `GET /api/v1/me` determine what the authenticated principal can perform inside its tenant at the application layer. A token with a broad scope but a narrow role will still be refused by Ledger Core if the operation requires a permission the role does not grant.
 
 | Scope | Purpose |
-|---|---|
+| --- | --- |
 | `openid` | Required for OpenID Connect flows; enables ID token issuance |
 | `profile` | Allows reading effective identity claims via `/api/v1/me` |
 | `finance.read` | Read-only access to tenant-scoped financial resources |

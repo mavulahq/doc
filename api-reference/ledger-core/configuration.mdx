@@ -10,12 +10,12 @@ The Configuration API is the institutional setup layer of the Ledger Core platfo
 
 ## Products
 
-Products are the templates that govern account behaviour — they define currency, minimum balance rules, applicable fee structures, and more. Every account is associated with exactly one product at creation time.
+Products are the templates that govern account behaviour - they define currency, minimum balance rules, applicable fee structures, and more. Every account is associated with exactly one product at creation time.
 
 ### Endpoint summary
 
 | Method | Path | Permission | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `GET` | `/api/products` | `finance.read` | List all financial products for the tenant. |
 | `POST` | `/api/products` | `configuration.write` | Create or update a financial product. |
 | `GET` | `/api/products/config` | `finance.read` | Read the tenant-level product configuration. |
@@ -37,20 +37,22 @@ GET https://ledger.mavula.dev/api/products
 ```
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/products \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
-**Response `200`** — Array of `Product` objects with `id`, `type`, `config`, `version`, `created_at`, and `updated_at`.
+**Response `200`** - Array of `Product` objects with `id`, `type`, `config`, `version`, `created_at`, and `updated_at`.
 
 ---
 
 ### Create or update a financial product
 
 <Note>
-  **Required permission:** `configuration.write` — Requires `Idempotency-Key` header.
+  **Required permission:** `configuration.write` - Requires `Idempotency-Key` header.
 </Note>
 
 Creates a new product or updates an existing one. This is an upsert operation; the product `id` in the request body determines whether a new record is created or an existing one is overwritten.
@@ -70,6 +72,7 @@ POST https://ledger.mavula.dev/api/products
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS -X POST https://ledger.mavula.dev/api/products \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
@@ -85,9 +88,10 @@ curl -sS -X POST https://ledger.mavula.dev/api/products \
     }
   }'
 ```
+
 </CodeGroup>
 
-**Response `201`** — Returns the stored `Product` object.
+**Response `201`** - Returns the stored `Product` object.
 
 ---
 
@@ -104,20 +108,22 @@ GET https://ledger.mavula.dev/api/products/config
 ```
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/products/config \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
-**Response `200`** — Returns a `TenantProductConfiguration` object with `jurisdiction` and a `products` array.
+**Response `200`** - Returns a `TenantProductConfiguration` object with `jurisdiction` and a `products` array.
 
 ---
 
 ### Generate jurisdiction defaults
 
 <Note>
-  **Required permission:** `configuration.write` — Requires `Idempotency-Key` header.
+  **Required permission:** `configuration.write` - Requires `Idempotency-Key` header.
 </Note>
 
 Generates a starter set of products and configuration defaults based on the specified jurisdiction code. Useful when onboarding a new tenant or adding a new operating region.
@@ -133,6 +139,7 @@ POST https://ledger.mavula.dev/api/products/config/generate
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS -X POST https://ledger.mavula.dev/api/products/config/generate \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
@@ -141,9 +148,10 @@ curl -sS -X POST https://ledger.mavula.dev/api/products/config/generate \
   -H "X-Correlation-ID: f10i645d-4e5f-7h8g-2i1d-0e9f8g7h6i5d" \
   -d '{"jurisdiction": "MZ"}'
 ```
+
 </CodeGroup>
 
-**Response `201`** — Returns the generated `TenantProductConfiguration`.
+**Response `201`** - Returns the generated `TenantProductConfiguration`.
 
 ---
 
@@ -162,24 +170,26 @@ GET https://ledger.mavula.dev/api/products/{productId}
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/products/savings_standard \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
-**Response `200`** — Returns the `Product` object.
+**Response `200`** - Returns the `Product` object.
 
 ---
 
 ## Rules
 
-Rules define the conditions and actions that govern product behaviour — for example, eligibility criteria, spending limits, or fee triggers. Each rule belongs to exactly one product.
+Rules define the conditions and actions that govern product behaviour - for example, eligibility criteria, spending limits, or fee triggers. Each rule belongs to exactly one product.
 
 ### Endpoint summary
 
 | Method | Path | Permission | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `GET` | `/api/products/{productId}/rules` | `finance.read` | List all rules for a product. |
 | `POST` | `/api/products/{productId}/rules` | `configuration.write` | Create a rule for a product. |
 | `POST` | `/api/products/{productId}/rules/defaults` | `configuration.write` | Seed the default rule set for a product. |
@@ -203,20 +213,22 @@ GET https://ledger.mavula.dev/api/products/{productId}/rules
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/products/savings_standard/rules \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
-**Response `200`** — Array of `Rule` objects.
+**Response `200`** - Array of `Rule` objects.
 
 ---
 
 ### Create a product rule
 
 <Note>
-  **Required permission:** `configuration.write` — Requires `Idempotency-Key` header.
+  **Required permission:** `configuration.write` - Requires `Idempotency-Key` header.
 </Note>
 
 ```text
@@ -254,6 +266,7 @@ POST https://ledger.mavula.dev/api/products/{productId}/rules
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS -X POST https://ledger.mavula.dev/api/products/savings_standard/rules \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
@@ -268,16 +281,17 @@ curl -sS -X POST https://ledger.mavula.dev/api/products/savings_standard/rules \
     "enabled": true
   }'
 ```
+
 </CodeGroup>
 
-**Response `201`** — Returns the created `Rule` object.
+**Response `201`** - Returns the created `Rule` object.
 
 ---
 
 ### Seed default product rules
 
 <Note>
-  **Required permission:** `configuration.write` — Requires `Idempotency-Key` header.
+  **Required permission:** `configuration.write` - Requires `Idempotency-Key` header.
 </Note>
 
 Seeds the platform-recommended default rule set for a product. This is a fast way to get started with a sensible baseline that you can adjust afterwards.
@@ -291,40 +305,34 @@ POST https://ledger.mavula.dev/api/products/{productId}/rules/defaults
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS -X POST https://ledger.mavula.dev/api/products/savings_standard/rules/defaults \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: i43l978g-7h8i-0k1j-5l4g-3h2i1j0k9l8g"
 ```
+
 </CodeGroup>
 
-**Response `201`** — Array of the seeded `Rule` objects.
+**Response `201`** - Array of the seeded `Rule` objects.
 
 ---
 
 ### Update a product rule
 
 <Note>
-  **Required permission:** `configuration.write` — Requires `Idempotency-Key` header.
+  **Required permission:** `configuration.write` - Requires `Idempotency-Key` header.
 </Note>
 
 ```text
 PUT https://ledger.mavula.dev/api/products/{productId}/rules/{ruleId}
 ```
 
-<ParamField path="productId" type="string" required>Product identifier.</ParamField>
-<ParamField path="ruleId" type="string" required>Rule identifier.</ParamField>
-
 ### Request body (all fields optional)
 
-<ParamField body="condition" type="string">Updated condition expression. Max 2000 chars.</ParamField>
-<ParamField body="action" type="object">Updated action object.</ParamField>
-<ParamField body="priority" type="integer">Updated evaluation priority.</ParamField>
-<ParamField body="enabled" type="boolean">Enable or disable the rule.</ParamField>
-<ParamField body="applies_to" type="array">Updated list of applicable operation types.</ParamField>
-
 <CodeGroup>
+
 ```bash cURL
 curl -sS -X PUT https://ledger.mavula.dev/api/products/savings_standard/rules/rule_001 \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
@@ -333,45 +341,45 @@ curl -sS -X PUT https://ledger.mavula.dev/api/products/savings_standard/rules/ru
   -H "X-Correlation-ID: k65n190i-9j0k-2m3l-7n6i-5j4k3l2m1n0i" \
   -d '{"enabled": false, "priority": 5}'
 ```
+
 </CodeGroup>
 
-**Response `200`** — Returns `{"status": "ok", "rule_id": "rule_001"}`.
+**Response `200`** - Returns `{"status": "ok", "rule_id": "rule_001"}`.
 
 ---
 
 ### Delete a product rule
 
 <Note>
-  **Required permission:** `configuration.write` — Requires `Idempotency-Key` header.
+  **Required permission:** `configuration.write` - Requires `Idempotency-Key` header.
 </Note>
 
 ```text
 DELETE https://ledger.mavula.dev/api/products/{productId}/rules/{ruleId}
 ```
 
-<ParamField path="productId" type="string" required>Product identifier.</ParamField>
-<ParamField path="ruleId" type="string" required>Rule identifier.</ParamField>
-
 <CodeGroup>
+
 ```bash cURL
 curl -sS -X DELETE https://ledger.mavula.dev/api/products/savings_standard/rules/rule_001 \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
   -H "Idempotency-Key: l76o201j-0k1l-3n4m-8o7j-6k5l4m3n2o1j"
 ```
+
 </CodeGroup>
 
-**Response `200`** — Returns `{"status": "ok", "rule_id": "rule_001"}`.
+**Response `200`** - Returns `{"status": "ok", "rule_id": "rule_001"}`.
 
 ---
 
 ## Schemas
 
-Schemas let you define the structure of the custom entities your institution works with — for example, business registration records, KYC documents, or collateral descriptions. Each schema is a named collection of typed field definitions.
+Schemas let you define the structure of the custom entities your institution works with - for example, business registration records, KYC documents, or collateral descriptions. Each schema is a named collection of typed field definitions.
 
 ### Endpoint summary
 
 | Method | Path | Permission | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `GET` | `/api/schemas` | `finance.read` | List all entity schemas for the tenant. |
 | `POST` | `/api/schemas` | `configuration.write` | Create an entity schema. |
 | `POST` | `/api/schemas/import` | `configuration.write` | Import an entity schema from a portable definition. |
@@ -392,20 +400,22 @@ GET https://ledger.mavula.dev/api/schemas
 ```
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/schemas \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
-**Response `200`** — Array of `EntitySchema` objects.
+**Response `200`** - Array of `EntitySchema` objects.
 
 ---
 
 ### Create an entity schema
 
 <Note>
-  **Required permission:** `configuration.write` — Requires `Idempotency-Key` header.
+  **Required permission:** `configuration.write` - Requires `Idempotency-Key` header.
 </Note>
 
 ```text
@@ -426,18 +436,11 @@ POST https://ledger.mavula.dev/api/schemas
   Array of field definitions.
 
   <Expandable title="FieldDefinition">
-    <ParamField body="name" type="string" required>Field name.</ParamField>
-    <ParamField body="type" type="string" required>Field type: `STRING`, `NUMBER`, `DATE`, `BOOLEAN`, `ENUM`, or `REFERENCE`.</ParamField>
-    <ParamField body="required" type="boolean" required>Whether the field must be present on every entity instance.</ParamField>
-    <ParamField body="maxLength" type="integer">Maximum string length.</ParamField>
-    <ParamField body="pattern" type="string">Regex validation pattern.</ParamField>
-    <ParamField body="enum_values" type="array">Allowed values for `ENUM` type fields.</ParamField>
-    <ParamField body="reference_table" type="string">Target entity name for `REFERENCE` type fields.</ParamField>
-    <ParamField body="description" type="string">Human-readable field description.</ParamField>
   </Expandable>
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS -X POST https://ledger.mavula.dev/api/schemas \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
@@ -454,16 +457,17 @@ curl -sS -X POST https://ledger.mavula.dev/api/schemas \
     ]
   }'
 ```
+
 </CodeGroup>
 
-**Response `201`** — Returns the created `EntitySchema` object.
+**Response `201`** - Returns the created `EntitySchema` object.
 
 ---
 
 ### Import an entity schema
 
 <Note>
-  **Required permission:** `configuration.write` — Requires `Idempotency-Key` header.
+  **Required permission:** `configuration.write` - Requires `Idempotency-Key` header.
 </Note>
 
 Imports a schema from a portable definition previously exported from another tenant or environment. Accepts the same body shape as the create endpoint.
@@ -473,6 +477,7 @@ POST https://ledger.mavula.dev/api/schemas/import
 ```
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS -X POST https://ledger.mavula.dev/api/schemas/import \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
@@ -480,16 +485,17 @@ curl -sS -X POST https://ledger.mavula.dev/api/schemas/import \
   -H "Idempotency-Key: o09r534m-3n4o-6q7p-1r0m-9n8o7p6q5r4m" \
   -d '{ ...exported schema definition... }'
 ```
+
 </CodeGroup>
 
-**Response `201`** — Returns the imported `EntitySchema`.
+**Response `201`** - Returns the imported `EntitySchema`.
 
 ---
 
 ### Create business registration preset schema
 
 <Note>
-  **Required permission:** `configuration.write` — Requires `Idempotency-Key` header.
+  **Required permission:** `configuration.write` - Requires `Idempotency-Key` header.
 </Note>
 
 Creates the built-in business registration entity schema with a pre-populated set of common fields required for corporate onboarding.
@@ -499,14 +505,16 @@ POST https://ledger.mavula.dev/api/schemas/presets/business-registration
 ```
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS -X POST https://ledger.mavula.dev/api/schemas/presets/business-registration \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
   -H "Idempotency-Key: p10s645n-4o5p-7r8q-2s1n-0o9p8q7r6s5n"
 ```
+
 </CodeGroup>
 
-**Response `201`** — Returns the preset `EntitySchema`.
+**Response `201`** - Returns the preset `EntitySchema`.
 
 ---
 
@@ -520,16 +528,16 @@ curl -sS -X POST https://ledger.mavula.dev/api/schemas/presets/business-registra
 GET https://ledger.mavula.dev/api/schemas/{schemaId}
 ```
 
-<ParamField path="schemaId" type="string" required>The unique schema identifier.</ParamField>
-
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/schemas/schema_abc123 \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
-**Response `200`** — Returns the `EntitySchema` object.
+**Response `200`** - Returns the `EntitySchema` object.
 
 ---
 
@@ -545,16 +553,16 @@ Returns a portable schema definition that can be imported into another tenant or
 GET https://ledger.mavula.dev/api/schemas/{schemaId}/export
 ```
 
-<ParamField path="schemaId" type="string" required>The unique schema identifier.</ParamField>
-
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/schemas/schema_abc123/export \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
-**Response `200`** — Returns the exportable `EntitySchema` definition.
+**Response `200`** - Returns the exportable `EntitySchema` definition.
 
 ---
 
@@ -565,7 +573,7 @@ Workflows are configurable automation definitions that execute a series of steps
 ### Endpoint summary
 
 | Method | Path | Permission | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `GET` | `/api/workflows` | `finance.read` | List all workflows for the tenant. |
 | `POST` | `/api/workflows` | `configuration.write` | Create a workflow. |
 | `GET` | `/api/workflows/trigger/{trigger}` | `finance.read` | List workflows bound to a specific trigger. |
@@ -587,20 +595,22 @@ GET https://ledger.mavula.dev/api/workflows
 ```
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/workflows \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
-**Response `200`** — Array of `Workflow` objects.
+**Response `200`** - Array of `Workflow` objects.
 
 ---
 
 ### Create a workflow
 
 <Note>
-  **Required permission:** `configuration.write` — Requires `Idempotency-Key` header.
+  **Required permission:** `configuration.write` - Requires `Idempotency-Key` header.
 </Note>
 
 ```text
@@ -621,15 +631,11 @@ POST https://ledger.mavula.dev/api/workflows
   Ordered list of steps to execute.
 
   <Expandable title="WorkflowStep">
-    <ParamField body="order" type="integer" required>Execution order. Min `1`.</ParamField>
-    <ParamField body="name" type="string" required>Step name for logging and debugging.</ParamField>
-    <ParamField body="action" type="string" required>The action type to invoke.</ParamField>
-    <ParamField body="parameters" type="object" required>Action-specific parameters.</ParamField>
-    <ParamField body="condition" type="string">Optional condition expression. Step is skipped when condition is false.</ParamField>
   </Expandable>
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS -X POST https://ledger.mavula.dev/api/workflows \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
@@ -650,9 +656,10 @@ curl -sS -X POST https://ledger.mavula.dev/api/workflows \
     ]
   }'
 ```
+
 </CodeGroup>
 
-**Response `201`** — Returns the created `Workflow` object.
+**Response `201`** - Returns the created `Workflow` object.
 
 ---
 
@@ -673,20 +680,22 @@ GET https://ledger.mavula.dev/api/workflows/trigger/{trigger}
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/workflows/trigger/LOAN_APPROVED \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
-**Response `200`** — Array of matching `Workflow` objects.
+**Response `200`** - Array of matching `Workflow` objects.
 
 ---
 
 ### Create loan approval notification preset
 
 <Note>
-  **Required permission:** `configuration.write` — Requires `Idempotency-Key` header.
+  **Required permission:** `configuration.write` - Requires `Idempotency-Key` header.
 </Note>
 
 Creates a pre-configured workflow that sends a notification when a loan is approved.
@@ -696,21 +705,23 @@ POST https://ledger.mavula.dev/api/workflows/presets/loan-approval-notification
 ```
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS -X POST https://ledger.mavula.dev/api/workflows/presets/loan-approval-notification \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
   -H "Idempotency-Key: s43v978q-7r8s-0u1t-5v4q-3r2s1t0u9v8q"
 ```
+
 </CodeGroup>
 
-**Response `201`** — Returns the preset `Workflow`.
+**Response `201`** - Returns the preset `Workflow`.
 
 ---
 
 ### Create monthly fee charge preset
 
 <Note>
-  **Required permission:** `configuration.write` — Requires `Idempotency-Key` header.
+  **Required permission:** `configuration.write` - Requires `Idempotency-Key` header.
 </Note>
 
 Creates a pre-configured workflow that charges a monthly maintenance fee to an account.
@@ -720,14 +731,16 @@ POST https://ledger.mavula.dev/api/workflows/presets/monthly-fee-charge
 ```
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS -X POST https://ledger.mavula.dev/api/workflows/presets/monthly-fee-charge \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
   -H "Idempotency-Key: t54w089r-8s9t-1v2u-6w5r-4s3t2u1v0w9r"
 ```
+
 </CodeGroup>
 
-**Response `201`** — Returns the preset `Workflow`.
+**Response `201`** - Returns the preset `Workflow`.
 
 ---
 
@@ -741,23 +754,23 @@ curl -sS -X POST https://ledger.mavula.dev/api/workflows/presets/monthly-fee-cha
 GET https://ledger.mavula.dev/api/workflows/{workflowId}
 ```
 
-<ParamField path="workflowId" type="string" required>The unique workflow identifier.</ParamField>
-
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/workflows/wf_p1q2r3s4 \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
-**Response `200`** — Returns the `Workflow` object.
+**Response `200`** - Returns the `Workflow` object.
 
 ---
 
 ### Execute a workflow
 
 <Note>
-  **Required permission:** `finance.write` — Requires `Idempotency-Key` header.
+  **Required permission:** `finance.write` - Requires `Idempotency-Key` header.
 </Note>
 
 Manually triggers a workflow execution with the provided context. Use this for on-demand events or testing.
@@ -766,8 +779,6 @@ Manually triggers a workflow execution with the provided context. Use this for o
 POST https://ledger.mavula.dev/api/workflows/{workflowId}/execute
 ```
 
-<ParamField path="workflowId" type="string" required>The unique workflow identifier.</ParamField>
-
 ### Request body
 
 <ParamField body="context" type="object" required>
@@ -775,6 +786,7 @@ POST https://ledger.mavula.dev/api/workflows/{workflowId}/execute
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS -X POST https://ledger.mavula.dev/api/workflows/wf_p1q2r3s4/execute \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
@@ -788,6 +800,7 @@ curl -sS -X POST https://ledger.mavula.dev/api/workflows/wf_p1q2r3s4/execute \
     }
   }'
 ```
+
 </CodeGroup>
 
-**Response `201`** — Returns a free-form result object with the outputs of each workflow step.
+**Response `201`** - Returns a free-form result object with the outputs of each workflow step.

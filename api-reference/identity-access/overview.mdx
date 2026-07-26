@@ -1,10 +1,10 @@
 ---
-title: "MAVULA Identity Access API — OAuth 2.0 and OIDC Guide"
+title: "MAVULA Identity Access API - OAuth 2.0 and OIDC Guide"
 sidebarTitle: "Overview"
 description: "OAuth 2.0 and OpenID Connect authorization surface for MAVULA. Issue, inspect, and revoke tokens that carry institutional identity claims."
 ---
 
-The Identity Access API is the single authorization surface for all MAVULA principals — human operators and institutional backend services alike. Every access token it issues is a PS256-signed JWT carrying tenant, institution, branch, role, and permission claims derived from persisted identity state. You use these tokens to authenticate against Ledger Core, Workbench, and every other protected MAVULA API. All token validation is done locally by resource servers using the public keys published at `/jwks`, so no round-trip to the Identity Access API is required on each request.
+The Identity Access API is the single authorization surface for all MAVULA principals - human operators and institutional backend services alike. Every access token it issues is a PS256-signed JWT carrying tenant, institution, branch, role, and permission claims derived from persisted identity state. You use these tokens to authenticate against Ledger Core, Workbench, and every other protected MAVULA API. All token validation is done locally by resource servers using the public keys published at `/jwks`, so no round-trip to the Identity Access API is required on each request.
 
 ## Base URL
 
@@ -19,20 +19,20 @@ https://identity.mavula.dev
 The API exposes six endpoints across three functional groups.
 
 | Method | Path | Group | Description |
-|--------|------|-------|-------------|
-| `GET` | `/.well-known/openid-configuration` | Discovery | Returns OpenID Provider metadata — endpoints, supported grants, scopes, and algorithms. |
+| --- | --- | --- | --- |
+| `GET` | `/.well-known/openid-configuration` | Discovery | Returns OpenID Provider metadata - endpoints, supported grants, scopes, and algorithms. |
 | `GET` | `/jwks` | Discovery | Returns the PS256 public signing keys used to verify access tokens. |
-| `GET` | `/auth` | OAuth 2.0 | Starts the Authorization Code + PKCE flow and redirects the user agent. |
+| `GET` | `/auth` | OAuth 2.0 | Starts the Authorization Code \+ PKCE flow and redirects the user agent. |
 | `POST` | `/token` | OAuth 2.0 | Exchanges an authorization code, refresh token, or client credentials for tokens. |
 | `POST` | `/token/revocation` | OAuth 2.0 | Revokes an access or refresh token. |
 | `GET` | `/api/v1/me` | Identity | Returns the effective identity carried by the current Bearer token. |
 
 ## Authentication model
 
-Most endpoints are public and require no credentials — they are designed to be called by browsers and OAuth clients during flow initiation. The one protected endpoint is `GET /api/v1/me`, which requires a valid Bearer token in the `Authorization` header.
+Most endpoints are public and require no credentials - they are designed to be called by browsers and OAuth clients during flow initiation. The one protected endpoint is `GET /api/v1/me`, which requires a valid Bearer token in the `Authorization` header.
 
 | Endpoint | Auth required |
-|----------|---------------|
+| --- | --- |
 | `GET /.well-known/openid-configuration` | None |
 | `GET /jwks` | None |
 | `GET /auth` | None |
@@ -42,7 +42,7 @@ Most endpoints are public and require no credentials — they are designed to be
 
 ## Token format
 
-All tokens issued by MAVULA Identity Access are JSON Web Tokens (JWTs) signed with the **PS256** algorithm (RSASSA-PSS with SHA-256). Resource servers verify tokens locally by fetching the public key set from `/jwks` and caching it — you should never need to forward tokens back to this API for validation.
+All tokens issued by MAVULA Identity Access are JSON Web Tokens (JWTs) signed with the **PS256** algorithm (RSASSA-PSS with SHA-256). Resource servers verify tokens locally by fetching the public key set from `/jwks` and caching it - you should never need to forward tokens back to this API for validation.
 
 ```text
 Authorization: Bearer <PS256-signed JWT>
@@ -57,7 +57,7 @@ Authorization: Bearer <PS256-signed JWT>
 Scopes constrain what a token is permitted to do. You request scopes at authorization time; the token only carries the subset that the operator's role permits.
 
 | Scope | Description |
-|-------|-------------|
+| --- | --- |
 | `openid` | Required for all operator flows. Enables the issuance of an ID token. |
 | `profile` | Grants access to `GET /api/v1/me` to read effective identity claims. |
 | `finance.read` | Authorizes read operations on tenant-scoped financial resources in Ledger Core. |
@@ -76,4 +76,4 @@ MAVULA Identity Access is a fully spec-compliant OpenID Provider. You can discov
 https://identity.mavula.dev/.well-known/openid-configuration
 ```
 
-This is the authoritative source for endpoint URLs. Hard-coding endpoint URLs in your integration is discouraged — read them from the metadata document at startup instead.
+This is the authoritative source for endpoint URLs. Hard-coding endpoint URLs in your integration is discouraged - read them from the metadata document at startup instead.

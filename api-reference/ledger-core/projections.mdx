@@ -4,7 +4,7 @@ sidebarTitle: "Projections"
 description: "Query eventually consistent read models for loan activity, ledger activity, and product publications using the MAVULA Ledger Core Projections API."
 ---
 
-Projections are read models derived from committed domain events. The Ledger Core API exposes three projection types — loan activity, ledger activity, and product publications — alongside a status endpoint that lets you inspect how current each projection is. You can use projections for operational search, reporting dashboards, and reconciliation workflows, but you should always treat them as secondary to the authoritative command surface for immediate financial decisions.
+Projections are read models derived from committed domain events. The Ledger Core API exposes three projection types - loan activity, ledger activity, and product publications - alongside a status endpoint that lets you inspect how current each projection is. You can use projections for operational search, reporting dashboards, and reconciliation workflows, but you should always treat them as secondary to the authoritative command surface for immediate financial decisions.
 
 <Note>
   **Eventual consistency:** Projections may lag behind the command surface by a short interval. A successful write operation (such as posting a transaction or approving a lifecycle request) may not be immediately visible in projection queries. Read `/api/projections/status` to inspect the `lag_seconds` for each projection. Use the account balance endpoint (`GET /api/accounts/{accountId}/balance`) or individual resource endpoints for authoritative, synchronous reads.
@@ -16,17 +16,19 @@ All projection endpoints require the `finance.read` permission.
 
 ## Read projection checkpoints
 
-Returns freshness metadata for each projection — including the last processed event identifier, the time it occurred, and the current lag in seconds. Use this endpoint to monitor projection health and to decide whether a projection result is fresh enough for your use case.
+Returns freshness metadata for each projection - including the last processed event identifier, the time it occurred, and the current lag in seconds. Use this endpoint to monitor projection health and to decide whether a projection result is fresh enough for your use case.
 
 ```text
 GET https://ledger.mavula.dev/api/projections/status
 ```
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/projections/status \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
 ### Response `200`
@@ -92,13 +94,15 @@ GET https://ledger.mavula.dev/api/projections/loan-activity
 ```
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/projections/loan-activity \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
-**Response `200`** — Array of `Projection` objects with `projection_name: "loan_activity"`.
+**Response `200`** - Array of `Projection` objects with `projection_name: "loan_activity"`.
 
 <ResponseField name="projection_name" type="string" required>
   Always `loan_activity` for this endpoint.
@@ -143,13 +147,15 @@ GET https://ledger.mavula.dev/api/projections/loan-activity/{loanId}
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/projections/loan-activity/loan_001 \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
-**Response `200`** — A single `Projection` object.
+**Response `200`** - A single `Projection` object.
 
 ```json
 {
@@ -181,13 +187,15 @@ GET https://ledger.mavula.dev/api/projections/ledger-activity
 ```
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/projections/ledger-activity \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
-**Response `200`** — Array of `Projection` objects with `projection_name: "ledger_activity"`.
+**Response `200`** - Array of `Projection` objects with `projection_name: "ledger_activity"`.
 
 ---
 
@@ -204,13 +212,15 @@ GET https://ledger.mavula.dev/api/projections/ledger-activity/{journalEntryId}
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/projections/ledger-activity/jnl_xyz789 \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
-**Response `200`** — A single `Projection` object.
+**Response `200`** - A single `Projection` object.
 
 ```json
 {
@@ -246,13 +256,15 @@ GET https://ledger.mavula.dev/api/projections/product-publications
 ```
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/projections/product-publications \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
-**Response `200`** — Array of `Projection` objects with `projection_name: "product_publication"`.
+**Response `200`** - Array of `Projection` objects with `projection_name: "product_publication"`.
 
 ---
 
@@ -269,13 +281,15 @@ GET https://ledger.mavula.dev/api/projections/product-publications/{productId}
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/projections/product-publications/savings_standard \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
-**Response `200`** — A single `Projection` object.
+**Response `200`** - A single `Projection` object.
 
 ```json
 {

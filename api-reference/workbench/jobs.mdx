@@ -4,20 +4,19 @@ sidebarTitle: "Jobs"
 description: "Submit async payment jobs to Workbench, then poll for durable execution state, attempt counts, results, and terminal failure details."
 ---
 
-The Jobs endpoints let you hand off payment work to Workbench and track it from acceptance through terminal outcome. Workbench accepts the job, persists it durably, and delegates execution to the relevant settlement domain — job acceptance is not the same as settlement completion. You are responsible for polling the status endpoint until the job reaches a terminal state, then reconciling the result against Ledger Core.
+The Jobs endpoints let you hand off payment work to Workbench and track it from acceptance through terminal outcome. Workbench accepts the job, persists it durably, and delegates execution to the relevant settlement domain - job acceptance is not the same as settlement completion. You are responsible for polling the status endpoint until the job reaches a terminal state, then reconciling the result against Ledger Core.
 
 <Note>
-Jobs are fully asynchronous. Do not interpret a `201 Created` response as a completed financial event. Always poll `GET /api/jobs/{jobId}` for the current state, and never resubmit a job simply because you did not receive the initial response — use your `Idempotency-Key` to replay the original request safely.
+  Jobs are fully asynchronous. Do not interpret a `201 Created` response as a completed financial event. Always poll `GET /api/jobs/{jobId}` for the current state, and never resubmit a job simply because you did not receive the initial response - use your `Idempotency-Key` to replay the original request safely.
 </Note>
 
 ---
 
 ## POST /api/jobs
 
-Submit a new payment job scoped to your tenant. The tenant is always derived from the Bearer token — you do not pass a tenant ID in the request body.
+Submit a new payment job scoped to your tenant. The tenant is always derived from the Bearer token - you do not pass a tenant ID in the request body.
 
-**Required permission:** `workbench.jobs.write`  
-**Required header:** `Idempotency-Key`
+**Required permission:** `workbench.jobs.write`<br />**Required header:** `Idempotency-Key`
 
 ### Request headers
 
@@ -39,18 +38,18 @@ Submit a new payment job scoped to your tenant. The tenant is always derived fro
   The job type that determines which settlement workflow is invoked. One of:
 
   | Value | Purpose |
-  |---|---|
+  | --- | --- |
   | `PAYMENT_CAPTURE` | Initiate an inbound payment capture on a supported rail. |
   | `PAYMENT_DISBURSEMENT` | Initiate an outbound disbursement to a payee. |
   | `PAYMENT_SETTLEMENT` | Record a provider settlement event against an existing capture or disbursement. |
   | `PAYMENT_RECONCILIATION` | Trigger a reconciliation pass for outstanding payment records. |
 </ParamField>
 
-<ParamField body="queue" type="string" default="payments">
+<ParamField body="queue" default="payments" type="string">
   Target queue. Must be `payments`. Defaults to `payments` if omitted.
 </ParamField>
 
-<ParamField body="max_attempts" type="integer" default="3">
+<ParamField body="max_attempts" default="3" type="integer">
   Maximum retry attempts before the job moves to `FAILED`. Minimum `1`. Defaults to `3`.
 </ParamField>
 
@@ -61,26 +60,34 @@ Submit a new payment job scoped to your tenant. The tenant is always derived fro
     <ParamField body="payload.idempotency_key" type="string" required>
       Idempotency key for the payment operation itself (distinct from the header key).
     </ParamField>
+
     <ParamField body="payload.correlation_id" type="string" required>
       Trace correlation identifier for this payment operation.
     </ParamField>
+
     <ParamField body="payload.rail" type="string" required>
       Payment rail. One of: `mpesa`, `emola`, `mkesh`, `bank_transfer`.
     </ParamField>
+
     <ParamField body="payload.amount" type="object" required>
       Amount in minor units (centavos).
-      - `currency` — must be `MZN`.
-      - `valueMinor` — integer ≥ 1.
+
+      - `currency` - must be `MZN`.
+      - `valueMinor` - integer ≥ 1.
     </ParamField>
+
     <ParamField body="payload.payer" type="object" required>
       Payer party. Requires `accountRef` (string). Optionally accepts `displayName` and `phoneNumber`.
     </ParamField>
+
     <ParamField body="payload.payee" type="object" required>
       Payee party. Requires `accountRef` (string). Optionally accepts `displayName` and `phoneNumber`.
     </ParamField>
+
     <ParamField body="payload.provider_reference" type="string">
       External provider reference, if already known at submission time.
     </ParamField>
+
     <ParamField body="payload.metadata" type="object">
       Freeform string key/value pairs for caller-defined context.
     </ParamField>
@@ -90,12 +97,15 @@ Submit a new payment job scoped to your tenant. The tenant is always derived fro
     <ParamField body="payload.provider_reference" type="string" required>
       The provider's unique reference for the payment being settled.
     </ParamField>
+
     <ParamField body="payload.provider_event_id" type="string" required>
       The provider's event or callback identifier for this settlement.
     </ParamField>
+
     <ParamField body="payload.status" type="string" required>
       Settlement outcome reported by the provider. One of: `pending`, `succeeded`, `failed`.
     </ParamField>
+
     <ParamField body="payload.failure_reason" type="string">
       Human-readable reason string when `status` is `failed`.
     </ParamField>
@@ -108,7 +118,7 @@ Submit a new payment job scoped to your tenant. The tenant is always derived fro
   </Expandable>
 </ParamField>
 
-### Response — 201 Created
+### Response - 201 Created
 
 <ResponseField name="id" type="string" required>
   Workbench-assigned job identifier. Persist this to poll status.
@@ -233,7 +243,7 @@ Read the current status, attempt count, result, and failure details for a tenant
   The job identifier returned by `POST /api/jobs`.
 </ParamField>
 
-### Response — 200 OK
+### Response - 200 OK
 
 The response schema is identical to the `POST /api/jobs` 201 response documented above.
 
@@ -242,14 +252,14 @@ The response schema is identical to the `POST /api/jobs` 201 response documented
 Use the following table to determine what action your integration should take for each observed state:
 
 | State | Meaning | Recommended client action |
-|---|---|---|
+| --- | --- | --- |
 | `QUEUED` | Work is durable and awaiting execution by a worker. | Poll with bounded exponential backoff. |
-| `PROCESSING` | A worker is actively executing the job — provider interaction or reconciliation is in progress. | Continue polling; do not resubmit. |
+| `PROCESSING` | A worker is actively executing the job - provider interaction or reconciliation is in progress. | Continue polling; do not resubmit. |
 | `COMPLETED` | The job reached its terminal successful state. | Reconcile the resulting domain state against Ledger Core. |
 | `FAILED` | The retry policy was exhausted or the input cannot proceed. | Read `last_error` and correct the input before resubmitting with a new idempotency key. |
 
 <Note>
-Do not infer a ledger posting from a payment job state. Ledger Core is the authoritative owner of financial postings and all balance invariants. A `COMPLETED` job means the settlement workflow finished successfully; it does not guarantee an immediate visible balance change.
+  Do not infer a ledger posting from a payment job state. Ledger Core is the authoritative owner of financial postings and all balance invariants. A `COMPLETED` job means the settlement workflow finished successfully; it does not guarantee an immediate visible balance change.
 </Note>
 
 ### Example

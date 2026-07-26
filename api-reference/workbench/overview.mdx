@@ -1,16 +1,16 @@
 ---
 title: "MAVULA Workbench API: Jobs, Batches, and Platform Status"
 sidebarTitle: "Overview"
-description: "Workbench orchestrates async payment jobs, regulatory batch workflows, and live platform status — all scoped to your MAVULA tenant."
+description: "Workbench orchestrates async payment jobs, regulatory batch workflows, and live platform status - all scoped to your MAVULA tenant."
 ---
 
-The MAVULA Workbench API is the operational control plane for your tenant. It lets you submit and monitor asynchronous payment jobs, generate and deliver regulatory exports, stage and validate legacy fixed-width imports, and inspect live platform health — all scoped to your tenant identity derived from the Bearer token you present on every request.
+The MAVULA Workbench API is the operational control plane for your tenant. It lets you submit and monitor asynchronous payment jobs, generate and deliver regulatory exports, stage and validate legacy fixed-width imports, and inspect live platform health - all scoped to your tenant identity derived from the Bearer token you present on every request.
 
 ## Base URL
 
 All Workbench endpoints share a single base URL:
 
-```
+```text
 https://workbench.mavula.dev
 ```
 
@@ -29,7 +29,7 @@ Requests without a valid token receive `401 Unauthorized`. Requests with a valid
 The Workbench API is organized into three logical groups. Each group targets a distinct operational concern and carries its own permission scope.
 
 | Group | Endpoints | Required permission | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **Jobs** | `POST /api/jobs` · `GET /api/jobs/{jobId}` | `workbench.jobs.write` · `workbench.read` | Submit tenant-scoped payment work and read durable execution state, attempt counts, results, and failure details. |
 | **Legacy Interoperability** | `POST /api/regulatory-exports` · `POST /api/legacy-imports` · `GET /api/legacy-batches` · `GET /api/legacy-batches/{batchId}` · `GET /api/legacy-batches/{batchId}/artifact` · `GET /api/legacy-batches/{batchId}/rejections` · `POST /api/regulatory-exports/{batchId}/delivery` | `compliance.manage` | Generate regulatory export files from Ledger Core transactions, stage and validate inbound legacy files, download immutable artifacts, read rejection reports, and record authority delivery evidence. |
 | **Status** | `GET /api/status` · `GET /api/status/queues` · `GET /api/status/schedules` | `workbench.read` | Read overall platform health, per-queue depths and processing rates, and registered schedule configurations. |
@@ -47,7 +47,7 @@ All error responses share a consistent JSON envelope:
 ```
 
 | HTTP status | Meaning |
-|---|---|
+| --- | --- |
 | `400 Bad Request` | The request body or parameters violate the API contract. |
 | `401 Unauthorized` | The Bearer token is missing or invalid. |
 | `403 Forbidden` | The token is valid but the required permission or tenant boundary is not satisfied. |

@@ -4,13 +4,13 @@ sidebarTitle: "Tokens"
 description: "Start the PKCE authorization flow, exchange codes and credentials for JWTs, rotate refresh tokens, and revoke tokens that must no longer be accepted."
 ---
 
-MAVULA Identity Access supports three token acquisition patterns: Authorization Code with PKCE for human operators, client credentials for backend services, and refresh token rotation for long-lived operator sessions. Once you hold an access token you pass it as a Bearer JWT to every protected MAVULA endpoint. When a token must no longer be accepted — on sign-out, credential rotation, or detected compromise — send it to the revocation endpoint so that it is immediately rejected by resource servers even before its natural expiry.
+MAVULA Identity Access supports three token acquisition patterns: Authorization Code with PKCE for human operators, client credentials for backend services, and refresh token rotation for long-lived operator sessions. Once you hold an access token you pass it as a Bearer JWT to every protected MAVULA endpoint. When a token must no longer be accepted - on sign-out, credential rotation, or detected compromise - send it to the revocation endpoint so that it is immediately rejected by resource servers even before its natural expiry.
 
 ---
 
 ## GET /auth
 
-Starts the Authorization Code flow with PKCE. You redirect the user agent (browser) to this URL. MAVULA presents the operator with an authentication interaction and, on completion, issues a short-lived authorization code to your registered `redirect_uri`. No authentication is required to call this endpoint — all parameters are passed as query strings.
+Starts the Authorization Code flow with PKCE. You redirect the user agent (browser) to this URL. MAVULA presents the operator with an authentication interaction and, on completion, issues a short-lived authorization code to your registered `redirect_uri`. No authentication is required to call this endpoint - all parameters are passed as query strings.
 
 Before redirecting, generate a cryptographically random `code_verifier` (minimum 43 characters), compute its SHA-256 hash, and Base64URL-encode the result as `code_challenge`. Store the verifier securely; you will need it at the `/token` step.
 
@@ -25,7 +25,7 @@ Before redirecting, generate a cryptographically random `code_verifier` (minimum
 </ParamField>
 
 <ParamField query="redirect_uri" type="string" required>
-  The exact callback URI registered for your client. The value must match character-for-character — trailing slashes and case differences will cause a rejection.
+  The exact callback URI registered for your client. The value must match character-for-character - trailing slashes and case differences will cause a rejection.
 </ParamField>
 
 <ParamField query="scope" type="string" required>
@@ -86,7 +86,6 @@ Exchanges credentials for tokens. Depending on the `grant_type`, you supply an a
 
 <Tabs>
   <Tab title="Authorization Code">
-
     Exchange the authorization code returned to your `redirect_uri` for a full set of tokens. You must supply the original `code_verifier` to prove ownership of the PKCE challenge.
 
     ### Request body parameters
@@ -112,6 +111,7 @@ Exchanges credentials for tokens. Depending on the `grant_type`, you supply an a
     </ParamField>
 
     <CodeGroup>
+
     ```bash cURL
     curl -sS -X POST https://identity.mavula.dev/token \
       -H 'Content-Type: application/x-www-form-urlencoded' \
@@ -130,22 +130,21 @@ Exchanges credentials for tokens. Depending on the `grant_type`, you supply an a
       redirect_uri: 'https://ops.example.com/callback',
       code_verifier: originalCodeVerifier,
     });
-
+    
     const response = await fetch('https://identity.mavula.dev/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body,
     });
-
+    
     if (!response.ok) throw new Error(`Token exchange failed: ${response.status}`);
     const tokens = await response.json();
     ```
-    </CodeGroup>
 
+    </CodeGroup>
   </Tab>
   <Tab title="Client Credentials">
-
-    Obtain an access token for a backend service using registered client credentials. This grant does not produce an ID token or refresh token — services are expected to re-authenticate when the access token expires.
+    Obtain an access token for a backend service using registered client credentials. This grant does not produce an ID token or refresh token - services are expected to re-authenticate when the access token expires.
 
     ### Request body parameters
 
@@ -158,7 +157,7 @@ Exchanges credentials for tokens. Depending on the `grant_type`, you supply an a
     </ParamField>
 
     <ParamField body="client_secret" type="string" required>
-      The corresponding client secret. Treat this as a password — store it in a secrets manager and never expose it in logs or client-side code.
+      The corresponding client secret. Treat this as a password - store it in a secrets manager and never expose it in logs or client-side code.
     </ParamField>
 
     <ParamField body="scope" type="string">
@@ -166,6 +165,7 @@ Exchanges credentials for tokens. Depending on the `grant_type`, you supply an a
     </ParamField>
 
     <CodeGroup>
+
     ```bash cURL
     curl -sS -X POST https://identity.mavula.dev/token \
       -H 'Content-Type: application/x-www-form-urlencoded' \
@@ -182,26 +182,25 @@ Exchanges credentials for tokens. Depending on the `grant_type`, you supply an a
       client_secret: process.env.MAVULA_CLIENT_SECRET!,
       scope: 'internal.worker',
     });
-
+    
     const response = await fetch('https://identity.mavula.dev/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body,
     });
-
+    
     if (!response.ok) throw new Error(`Token request failed: ${response.status}`);
     const { access_token, expires_in } = await response.json();
     ```
+
     </CodeGroup>
 
     <Warning>
       Client credentials represent an approved internal worker identity. They do not inherit operator-level permissions and cannot be used to authorize Ledger Core or compliance operations that require a human principal.
     </Warning>
-
   </Tab>
   <Tab title="Refresh Token">
-
-    Exchange a refresh token for a new access token without requiring the operator to authenticate again. Refresh tokens are **rotated** — each successful exchange returns a new refresh token and invalidates the previous one. Persist the replacement atomically.
+    Exchange a refresh token for a new access token without requiring the operator to authenticate again. Refresh tokens are **rotated** - each successful exchange returns a new refresh token and invalidates the previous one. Persist the replacement atomically.
 
     ### Request body parameters
 
@@ -222,6 +221,7 @@ Exchanges credentials for tokens. Depending on the `grant_type`, you supply an a
     </ParamField>
 
     <CodeGroup>
+
     ```bash cURL
     curl -sS -X POST https://identity.mavula.dev/token \
       -H 'Content-Type: application/x-www-form-urlencoded' \
@@ -236,19 +236,19 @@ Exchanges credentials for tokens. Depending on the `grant_type`, you supply an a
       client_id: 'operator-console',
       refresh_token: storedRefreshToken,
     });
-
+    
     const response = await fetch('https://identity.mavula.dev/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body,
     });
-
+    
     if (!response.ok) throw new Error(`Token refresh failed: ${response.status}`);
     const tokens = await response.json();
     // Persist tokens.refresh_token atomically before using tokens.access_token
     ```
-    </CodeGroup>
 
+    </CodeGroup>
   </Tab>
 </Tabs>
 
@@ -308,7 +308,7 @@ All successful `/token` responses share the same JSON structure. Not all fields 
 
 Immediately revokes an access or refresh token. After revocation, resource servers will reject the token even if it has not yet reached its natural expiry. Call this endpoint on operator sign-out, credential rotation, and any time a token may have been compromised.
 
-A `200 OK` response indicates that the revocation request was received and processed. The response body is empty. MAVULA deliberately does not disclose whether the submitted token existed or was already expired — both cases return `200 OK`.
+A `200 OK` response indicates that the revocation request was received and processed. The response body is empty. MAVULA deliberately does not disclose whether the submitted token existed or was already expired - both cases return `200 OK`.
 
 ### Request body parameters
 
@@ -329,6 +329,7 @@ A `200 OK` response indicates that the revocation request was received and proce
 </ParamField>
 
 <CodeGroup>
+
 ```bash Revoke a refresh token
 curl -sS -X POST https://identity.mavula.dev/token/revocation \
   -H 'Content-Type: application/x-www-form-urlencoded' \
@@ -357,8 +358,9 @@ async function revokeToken(token: string, hint?: 'access_token' | 'refresh_token
   if (!response.ok) throw new Error(`Revocation failed: ${response.status}`);
 }
 ```
+
 </CodeGroup>
 
 <Note>
-  When revoking a refresh token, MAVULA also invalidates all access tokens derived from that refresh token. Revoke the refresh token on sign-out rather than just discarding it from client storage — tokens in transit could otherwise be reused until they expire.
+  When revoking a refresh token, MAVULA also invalidates all access tokens derived from that refresh token. Revoke the refresh token on sign-out rather than just discarding it from client storage - tokens in transit could otherwise be reused until they expire.
 </Note>

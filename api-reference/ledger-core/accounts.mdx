@@ -4,7 +4,7 @@ sidebarTitle: "Accounts"
 description: "Create tenant-scoped accounts, read real-time balances, and page through cursor-paginated statements using the Ledger Core Accounts API."
 ---
 
-The Accounts API gives you full control over the financial accounts that sit at the heart of the MAVULA ledger. You can create an account tied to a specific customer and financial product, read its current balance for use in decisioning, and retrieve a time-ordered statement of every posted entry. All monetary amounts are returned as decimal strings — never parse them with binary floating-point arithmetic.
+The Accounts API gives you full control over the financial accounts that sit at the heart of the MAVULA ledger. You can create an account tied to a specific customer and financial product, read its current balance for use in decisioning, and retrieve a time-ordered statement of every posted entry. All monetary amounts are returned as decimal strings - never parse them with binary floating-point arithmetic.
 
 ---
 
@@ -21,10 +21,12 @@ GET https://ledger.mavula.dev/api/accounts
 ```
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/accounts \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
 ### Response `200`
@@ -76,7 +78,7 @@ Returns an array of `Account` objects.
 ## Create an account
 
 <Note>
-  **Required permission:** `finance.write` — Requires `Idempotency-Key` header.
+  **Required permission:** `finance.write` - Requires `Idempotency-Key` header.
 </Note>
 
 Creates a new active, tenant-scoped account linked to a customer and a financial product. An identical `Idempotency-Key` replay returns the original `201` response without creating a duplicate.
@@ -118,6 +120,7 @@ POST https://ledger.mavula.dev/api/accounts
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS -X POST https://ledger.mavula.dev/api/accounts \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN" \
@@ -140,6 +143,7 @@ curl -sS -X POST https://ledger.mavula.dev/api/accounts \
   "currency": "MZN"
 }
 ```
+
 </CodeGroup>
 
 ### Response `201`
@@ -182,10 +186,12 @@ GET https://ledger.mavula.dev/api/accounts/{accountId}
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/accounts/acct_a1b2c3d4 \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
 ### Response `200`
@@ -200,7 +206,7 @@ Returns the `Account` object. See [Create an account](#create-an-account) for th
   **Required permission:** `finance.read`
 </Note>
 
-Returns the synchronous account balance. This is the authoritative value used for financial decisioning — it reflects every committed posting and is not subject to eventual consistency lag.
+Returns the synchronous account balance. This is the authoritative value used for financial decisioning - it reflects every committed posting and is not subject to eventual consistency lag.
 
 ```text
 GET https://ledger.mavula.dev/api/accounts/{accountId}/balance
@@ -213,10 +219,12 @@ GET https://ledger.mavula.dev/api/accounts/{accountId}/balance
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/accounts/acct_a1b2c3d4/balance \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
 ### Response `200`
@@ -285,6 +293,7 @@ GET https://ledger.mavula.dev/api/accounts/{accountId}/statement
 </ParamField>
 
 <CodeGroup>
+
 ```bash First page
 curl -sS 'https://ledger.mavula.dev/api/accounts/acct_a1b2c3d4/statement?limit=100' \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
@@ -299,6 +308,7 @@ curl -sS 'https://ledger.mavula.dev/api/accounts/acct_a1b2c3d4/statement?limit=1
 curl -sS 'https://ledger.mavula.dev/api/accounts/acct_a1b2c3d4/statement?from=2024-11-01T00:00:00Z&to=2024-11-30T23:59:59Z' \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
 ### Response `200`
@@ -310,36 +320,47 @@ curl -sS 'https://ledger.mavula.dev/api/accounts/acct_a1b2c3d4/statement?from=20
     <ResponseField name="id" type="string" required>
       Unique entry identifier.
     </ResponseField>
+
     <ResponseField name="account_id" type="string" required>
       The account this entry belongs to.
     </ResponseField>
+
     <ResponseField name="journal_entry_id" type="string">
       The journal entry that produced this posting, if applicable.
     </ResponseField>
+
     <ResponseField name="transaction_id" type="string">
       The transaction that produced this posting, if applicable.
     </ResponseField>
+
     <ResponseField name="posting_key" type="string" required>
       Stable posting key used for deduplication.
     </ResponseField>
+
     <ResponseField name="entry_type" type="string" required>
       One of `OPENING_BALANCE`, `POSTING`, `REVERSAL`, `CORRECTION`.
     </ResponseField>
+
     <ResponseField name="direction" type="string" required>
       `DEBIT` or `CREDIT`.
     </ResponseField>
+
     <ResponseField name="amount" type="string" required>
       Entry amount as a decimal string.
     </ResponseField>
+
     <ResponseField name="currency" type="string" required>
       ISO 4217 currency code.
     </ResponseField>
+
     <ResponseField name="balance_after" type="string" required>
       Account balance immediately after this entry was posted.
     </ResponseField>
+
     <ResponseField name="reference" type="string">
       Optional human-readable reference attached to the posting.
     </ResponseField>
+
     <ResponseField name="posted_at" type="string" required>
       ISO 8601 timestamp of when the entry was posted.
     </ResponseField>

@@ -4,7 +4,7 @@ sidebarTitle: "Adjustments"
 description: "Submit, approve, and reject financial reversal and correction requests against posted transactions and journal entries via the Ledger Core API."
 ---
 
-The Financial Adjustments API lets you correct the financial record without editing history in place. When a transaction or journal entry has been posted in error, you submit a `REVERSAL` or `CORRECTION` request against it. The original record remains immutable — the adjustment produces new, offsetting entries only after a separate operator approves the request. This keeps your audit trail complete and your controls intact.
+The Financial Adjustments API lets you correct the financial record without editing history in place. When a transaction or journal entry has been posted in error, you submit a `REVERSAL` or `CORRECTION` request against it. The original record remains immutable - the adjustment produces new, offsetting entries only after a separate operator approves the request. This keeps your audit trail complete and your controls intact.
 
 <Note>
   **Maker-checker rule:** The principal who submits an adjustment request (`finance.write`) and the principal who approves or rejects it (`finance.approve`) must be distinct operators. Self-approval returns `403 Forbidden`.
@@ -15,7 +15,7 @@ The Financial Adjustments API lets you correct the financial record without edit
 ## Submit a financial adjustment request
 
 <Note>
-  **Required permission:** `finance.write` — Requires `Idempotency-Key` header.
+  **Required permission:** `finance.write` - Requires `Idempotency-Key` header.
 </Note>
 
 Submits a `REVERSAL` or `CORRECTION` against a posted `TRANSACTION` or `JOURNAL_ENTRY`. The request is created in `PENDING_APPROVAL` status and must be reviewed by a different operator before any financial effect is applied.
@@ -67,15 +67,15 @@ POST https://ledger.mavula.dev/api/financial-adjustment-requests
         <ParamField body="correction.lending.amount" type="string" required>
           Corrected amount as a decimal string.
         </ParamField>
+
         <ParamField body="correction.lending.currency" type="string" required>
           ISO 4217 currency code.
         </ParamField>
+
         <ParamField body="correction.lending.allocation" type="object">
           Breakdown of the correction amount.
+
           <Expandable title="allocation fields">
-            <ParamField body="correction.lending.allocation.principal" type="string" required>Principal portion.</ParamField>
-            <ParamField body="correction.lending.allocation.interest" type="string" required>Interest portion.</ParamField>
-            <ParamField body="correction.lending.allocation.fees" type="string" required>Fees portion.</ParamField>
           </Expandable>
         </ParamField>
       </Expandable>
@@ -88,6 +88,7 @@ POST https://ledger.mavula.dev/api/financial-adjustment-requests
         <ParamField body="correction.journal.ledger_lines" type="array" required>
           At least two ledger lines, each with an `account_code` and either `debit_amount` or `credit_amount`.
         </ParamField>
+
         <ParamField body="correction.journal.account_postings" type="array">
           Optional account-level postings to accompany the ledger lines.
         </ParamField>
@@ -97,6 +98,7 @@ POST https://ledger.mavula.dev/api/financial-adjustment-requests
 </ParamField>
 
 <CodeGroup>
+
 ```bash Reversal
 curl -sS -X POST https://ledger.mavula.dev/api/financial-adjustment-requests \
   -H "Authorization: Bearer $MAKER_TOKEN" \
@@ -132,6 +134,7 @@ curl -sS -X POST https://ledger.mavula.dev/api/financial-adjustment-requests \
     }
   }'
 ```
+
 </CodeGroup>
 
 <Warning>
@@ -197,6 +200,7 @@ GET https://ledger.mavula.dev/api/financial-adjustment-requests
 </ParamField>
 
 <CodeGroup>
+
 ```bash List pending reversals
 curl -sS 'https://ledger.mavula.dev/api/financial-adjustment-requests?status=PENDING_APPROVAL&adjustment_type=REVERSAL' \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
@@ -206,6 +210,7 @@ curl -sS 'https://ledger.mavula.dev/api/financial-adjustment-requests?status=PEN
 curl -sS 'https://ledger.mavula.dev/api/financial-adjustment-requests?target_id=transaction_001' \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
 ### Response `200`
@@ -239,10 +244,12 @@ GET https://ledger.mavula.dev/api/financial-adjustment-requests/{requestId}
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://ledger.mavula.dev/api/financial-adjustment-requests/adjreq_x5y4z3w2 \
   -H "Authorization: Bearer $MAVULA_ACCESS_TOKEN"
 ```
+
 </CodeGroup>
 
 ### Response `200`
@@ -320,7 +327,7 @@ curl -sS https://ledger.mavula.dev/api/financial-adjustment-requests/adjreq_x5y4
 ## Approve a financial adjustment request
 
 <Note>
-  **Required permission:** `finance.approve` — Requires `Idempotency-Key` header. The approving operator must differ from the submitting operator.
+  **Required permission:** `finance.approve` - Requires `Idempotency-Key` header. The approving operator must differ from the submitting operator.
 </Note>
 
 Approves a `PENDING_APPROVAL` adjustment request and atomically posts the reversal and, for corrections, the replacement entries. The original record is never modified.
@@ -356,6 +363,7 @@ POST https://ledger.mavula.dev/api/financial-adjustment-requests/{requestId}/app
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS -X POST https://ledger.mavula.dev/api/financial-adjustment-requests/adjreq_x5y4z3w2/approve \
   -H "Authorization: Bearer $CHECKER_TOKEN" \
@@ -364,6 +372,7 @@ curl -sS -X POST https://ledger.mavula.dev/api/financial-adjustment-requests/adj
   -H "X-Correlation-ID: 5f8h3c2f-1j6g-9f43-3i2k-4h6f7g8i9j0e" \
   -d '{"reason": "Source documents verified, duplicate confirmed"}'
 ```
+
 </CodeGroup>
 
 ### Response `201`
@@ -379,7 +388,7 @@ Returns the updated `FinancialAdjustmentRequest` with `status: "APPLIED"` and `a
 ## Reject a financial adjustment request
 
 <Note>
-  **Required permission:** `finance.approve` — Requires `Idempotency-Key` header. The rejecting operator must differ from the submitting operator.
+  **Required permission:** `finance.approve` - Requires `Idempotency-Key` header. The rejecting operator must differ from the submitting operator.
 </Note>
 
 Rejects a `PENDING_APPROVAL` adjustment request. No financial entries are created. A `reason` is required.
@@ -415,6 +424,7 @@ POST https://ledger.mavula.dev/api/financial-adjustment-requests/{requestId}/rej
 </ParamField>
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS -X POST https://ledger.mavula.dev/api/financial-adjustment-requests/adjreq_x5y4z3w2/reject \
   -H "Authorization: Bearer $CHECKER_TOKEN" \
@@ -423,6 +433,7 @@ curl -sS -X POST https://ledger.mavula.dev/api/financial-adjustment-requests/adj
   -H "X-Correlation-ID: 6g9i4d3g-2k7h-0g54-4j3l-5i7g8h9j0k1f" \
   -d '{"reason": "Supporting evidence is insufficient to proceed with reversal"}'
 ```
+
 </CodeGroup>
 
 ### Response `201`
@@ -434,7 +445,7 @@ Returns the updated `FinancialAdjustmentRequest` with `status: "REJECTED"` and `
 ## Error reference
 
 | HTTP status | Meaning | Resolution |
-|---|---|---|
+| --- | --- | --- |
 | `400` | Invalid request body or `Idempotency-Key` format | Validate all required fields; ensure debit/credit totals balance for corrections. |
 | `403` | Missing permission or self-approval attempted | Use a distinct checker with `finance.approve`. |
 | `404` | Request or target record not found in the tenant | Verify identifiers and tenant context. |

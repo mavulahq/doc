@@ -7,7 +7,7 @@ description: "Read overall platform health, per-queue depths and processing rate
 The Status endpoints give you authenticated, real-time visibility into the operational health of the Workbench platform. You can check whether the service and its dependencies are operating normally, inspect per-queue depths and throughput counters to detect processing backlogs, and enumerate registered schedules to confirm that recurring jobs are configured and enabled as expected. All three endpoints require the `workbench.read` permission and return JSON.
 
 <Tip>
-Integrate these endpoints into your internal monitoring dashboards or alerting pipelines. Polling `GET /api/status` is a lightweight way to detect degraded or down conditions before they surface in job latency. Pair it with `GET /api/status/queues` to set threshold-based alerts on queue depth and dead-letter counts.
+  Integrate these endpoints into your internal monitoring dashboards or alerting pipelines. Polling `GET /api/status` is a lightweight way to detect degraded or down conditions before they surface in job latency. Pair it with `GET /api/status/queues` to set threshold-based alerts on queue depth and dead-letter counts.
 </Tip>
 
 ---
@@ -24,7 +24,7 @@ Read the overall platform status, including service health and the connectivity 
   Bearer JWT. Example: `Bearer eyJhbGci...`
 </ParamField>
 
-### Response — 200 OK
+### Response - 200 OK
 
 <ResponseField name="service" type="string">
   Service name identifier.
@@ -34,7 +34,7 @@ Read the overall platform status, including service health and the connectivity 
   Overall platform health. One of:
 
   | Value | Meaning |
-  |---|---|
+  | --- | --- |
   | `ok` | All components are operating normally. |
   | `degraded` | One or more components are impaired but the service is partially available. |
   | `down` | The service is unavailable or a critical dependency has failed. |
@@ -92,7 +92,7 @@ Read per-queue statistics including current depth, in-flight processing counts, 
   Bearer JWT.
 </ParamField>
 
-### Response — 200 OK
+### Response - 200 OK
 
 Returns an array of queue statistics objects.
 
@@ -168,7 +168,7 @@ Read the registered recurring schedules, including their names, queue targets, a
   Bearer JWT.
 </ParamField>
 
-### Response — 200 OK
+### Response - 200 OK
 
 Returns an array of scheduled job objects.
 

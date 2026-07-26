@@ -10,9 +10,6 @@ This guide uses the OAuth 2.0 authorization code flow with PKCE, which is the co
   **Token handling.** Keep access tokens in memory only - never write them to disk, logs, environment files committed to source control, or support requests. Rotate refresh tokens atomically: persist the replacement before discarding the previous value. Authorization codes are single-use; discard them immediately after the exchange in Step 1.
 </Note>
 
-<Steps>
-</Steps>
-
 ## Next steps
 
 You now have a working token, a confirmed identity, a live account, and a balance read. The pages below cover the production concerns you will want to address before going live.

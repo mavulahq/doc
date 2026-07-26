@@ -1,16 +1,16 @@
 ---
-title: "Read Effective Identity — MAVULA Identity Access API"
+title: "Read Effective Identity - MAVULA Identity Access API"
 sidebarTitle: "Identity"
 description: "Retrieve the institutional identity carried by a Bearer JWT: tenant, institution, branch, roles, and the full permission set for downstream authorization."
 ---
 
-Once your operator has authenticated and you hold a valid access token, `GET /api/v1/me` gives you the complete resolved identity that MAVULA has derived from that token's claims. Rather than decoding the JWT yourself, this endpoint returns a clean JSON object with all institutional context attached — the tenant and institution the operator belongs to, their assigned branch, their role within that institution, and the full permission set they are authorized to exercise. You use these permissions directly in your application to decide which Ledger Core and Workbench operations to expose or permit.
+Once your operator has authenticated and you hold a valid access token, `GET /api/v1/me` gives you the complete resolved identity that MAVULA has derived from that token's claims. Rather than decoding the JWT yourself, this endpoint returns a clean JSON object with all institutional context attached - the tenant and institution the operator belongs to, their assigned branch, their role within that institution, and the full permission set they are authorized to exercise. You use these permissions directly in your application to decide which Ledger Core and Workbench operations to expose or permit.
 
 ---
 
 ## GET /api/v1/me
 
-Returns the effective identity of the authenticated principal — the operator or service represented by the current access token.
+Returns the effective identity of the authenticated principal - the operator or service represented by the current access token.
 
 **Authentication required.** Include a valid Bearer JWT in the `Authorization` header. The token must carry the `profile` scope. Tokens that are missing, expired, issued for a different audience, or that lack the `profile` scope will receive a `401 Unauthorized` response.
 
@@ -23,6 +23,7 @@ Authorization: Bearer <PS256-signed JWT>
 This endpoint takes no query parameters or request body.
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://identity.mavula.dev/api/v1/me \
   -H 'Authorization: Bearer eyJhbGciOiJQUzI1NiIsImtpZCI6Im1hdnVsYS1wczI1Ni0yMDI0LTAxIn0...'
@@ -42,6 +43,7 @@ if (!response.ok) {
 const identity = await response.json();
 console.log(identity.permissions); // ["finance.read", "finance.write", ...]
 ```
+
 </CodeGroup>
 
 ---
@@ -69,7 +71,7 @@ console.log(identity.permissions); // ["finance.read", "finance.write", ...]
 
   <Expandable title="Available roles">
     | Role | Description |
-    |------|-------------|
+    | --- | --- |
     | `institution_admin` | Full administrative access within the institution. Can manage users, configuration, and all financial operations. |
     | `operations_maker` | Can initiate financial transactions and jobs but cannot approve or authorize them. |
     | `operations_checker` | Can review and approve transactions and jobs initiated by an `operations_maker`. |
@@ -83,9 +85,9 @@ console.log(identity.permissions); // ["finance.read", "finance.write", ...]
 
   <Expandable title="All permission values">
     | Permission | What it authorizes |
-    |------------|-------------------|
-    | `finance.read` | Read financial resources — accounts, transactions, balances — within the operator's tenant. |
-    | `finance.write` | Create and mutate financial resources — initiate transactions, create entries. |
+    | --- | --- |
+    | `finance.read` | Read financial resources - accounts, transactions, balances - within the operator's tenant. |
+    | `finance.write` | Create and mutate financial resources - initiate transactions, create entries. |
     | `finance.approve` | Approve or authorize pending transactions submitted by a maker. |
     | `configuration.write` | Modify institution-level configuration, including product and account type definitions. |
     | `compliance.manage` | Manage compliance rules, watchlists, and generate compliance reports. |
@@ -148,19 +150,19 @@ The `permissions` array is the authoritative source for what the current princip
 The following table maps permissions to the operations they gate in MAVULA's downstream APIs:
 
 | Permission | Ledger Core | Workbench |
-|------------|------------|-----------|
-| `finance.read` | Read accounts, list transactions, fetch balances | — |
-| `finance.write` | Create transaction entries, initiate transfers | — |
-| `finance.approve` | Authorize and approve pending transactions | — |
-| `workbench.read` | — | List jobs, read job status and history |
-| `workbench.jobs.write` | — | Create, update, and cancel jobs and schedules |
-| `configuration.write` | Manage account types and product definitions | — |
-| `compliance.manage` | — | — |
+| --- | --- | --- |
+| `finance.read` | Read accounts, list transactions, fetch balances | - |
+| `finance.write` | Create transaction entries, initiate transfers | - |
+| `finance.approve` | Authorize and approve pending transactions | - |
+| `workbench.read` | - | List jobs, read job status and history |
+| `workbench.jobs.write` | - | Create, update, and cancel jobs and schedules |
+| `configuration.write` | Manage account types and product definitions | - |
+| `compliance.manage` | - | - |
 | `audit.read` | Read transaction audit log | Read job execution history |
 | `observability.read` | Access metrics and health endpoints | Access pipeline metrics |
 
 <Warning>
-  Do not rely solely on client-side permission checks. Always enforce authorization on the server side by validating the access token and its claims on every request to a protected Ledger Core or Workbench endpoint. The `permissions` array from `/api/v1/me` is provided to help you build accurate operator interfaces — it does not replace server-side enforcement.
+  Do not rely solely on client-side permission checks. Always enforce authorization on the server side by validating the access token and its claims on every request to a protected Ledger Core or Workbench endpoint. The `permissions` array from `/api/v1/me` is provided to help you build accurate operator interfaces - it does not replace server-side enforcement.
 </Warning>
 
 ### Example: Checking permissions before an operation

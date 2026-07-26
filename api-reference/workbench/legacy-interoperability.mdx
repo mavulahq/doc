@@ -7,7 +7,7 @@ description: "Generate regulatory export files, stage and validate legacy fixed-
 The Legacy Interoperability endpoints bridge Workbench's modern job infrastructure with regulatory reporting formats and fixed-width file interchange. You can request the generation of a regulatory export from Ledger Core transactions, upload inbound fixed-width files for staged validation, download immutable export artifacts for authority delivery, and record a durable delivery receipt once an export has been submitted to a regulator. All seven endpoints require the `compliance.manage` permission, and all mutating operations require an `Idempotency-Key` header.
 
 <Warning>
-Legacy imports do **not** create financial mutations. Staging and validating a legacy file through `POST /api/legacy-imports` does **not** post transactions, create accounts, or alter any ledger balance. A validation acceptance only confirms the file is structurally correct. A separate, explicitly approved migration process is required to produce any financial effect.
+  Legacy imports do **not** create financial mutations. Staging and validating a legacy file through `POST /api/legacy-imports` does **not** post transactions, create accounts, or alter any ledger balance. A validation acceptance only confirms the file is structurally correct. A separate, explicitly approved migration process is required to produce any financial effect.
 </Warning>
 
 ---
@@ -16,8 +16,7 @@ Legacy imports do **not** create financial mutations. Staging and validating a l
 
 Request the generation of a regulatory export from posted Ledger Core transactions for a defined period. Workbench creates a durable batch receipt immediately and queues the generation work asynchronously.
 
-**Required permission:** `compliance.manage`  
-**Required headers:** `Idempotency-Key`, `X-Correlation-ID`
+**Required permission:** `compliance.manage`<br />**Required headers:** `Idempotency-Key`, `X-Correlation-ID`
 
 ### Request headers
 
@@ -26,7 +25,7 @@ Request the generation of a regulatory export from posted Ledger Core transactio
 </ParamField>
 
 <ParamField header="Idempotency-Key" type="string" required>
-  Unique key (1–255 characters). Safe to replay with an identical body if the original request timed out. Do not create a second export because you did not receive the first response — replay the same key instead.
+  Unique key (1–255 characters). Safe to replay with an identical body if the original request timed out. Do not create a second export because you did not receive the first response - replay the same key instead.
 </ParamField>
 
 <ParamField header="X-Correlation-ID" type="string" required>
@@ -55,7 +54,7 @@ Request the generation of a regulatory export from posted Ledger Core transactio
   Optional override for the generation timestamp. Defaults to the server time of acceptance.
 </ParamField>
 
-### Response — 201 Created
+### Response - 201 Created
 
 Returns a `LegacyBatchReceipt`. See [Batch receipt fields](#batch-receipt-response-fields) below.
 
@@ -101,9 +100,7 @@ curl -sS -X POST https://workbench.mavula.dev/api/regulatory-exports \
 
 Stage an inbound fixed-width file and queue it for validation. The file is stored durably and a batch receipt is returned immediately. Validation results, including deterministic rejections, are available once the batch reaches `VALIDATED` or `REJECTED` state.
 
-**Required permission:** `compliance.manage`  
-**Required headers:** `Idempotency-Key`, `X-Correlation-ID`  
-**Content-Type:** `multipart/form-data`
+**Required permission:** `compliance.manage`<br />**Required headers:** `Idempotency-Key`, `X-Correlation-ID`<br />**Content-Type:** `multipart/form-data`
 
 ### Request headers
 
@@ -125,7 +122,7 @@ Stage an inbound fixed-width file and queue it for validation. The file is store
   The US-ASCII fixed-width file to stage. Maximum size: **10 MiB**. Maximum detail records: **5,000**.
 </ParamField>
 
-### Response — 201 Created
+### Response - 201 Created
 
 Returns a `LegacyBatchReceipt`. See [Batch receipt fields](#batch-receipt-response-fields) below.
 
@@ -151,7 +148,7 @@ List all durable export and import batch receipts scoped to your tenant. Use thi
 
 **Required permission:** `compliance.manage`
 
-### Response — 200 OK
+### Response - 200 OK
 
 Returns an array of `LegacyBatchReceipt` objects. See [Batch receipt fields](#batch-receipt-response-fields) below.
 
@@ -180,7 +177,7 @@ Read the full durable state, attempt count, record totals, delivery evidence, an
   The batch identifier returned when the export or import was created.
 </ParamField>
 
-### Response — 200 OK
+### Response - 200 OK
 
 Returns a `LegacyBatchReceipt`. See [Batch receipt fields](#batch-receipt-response-fields) below.
 
@@ -209,7 +206,7 @@ Download the immutable US-ASCII fixed-width export artifact. Only call this endp
   The batch identifier of a successfully generated export.
 </ParamField>
 
-### Response — 200 OK
+### Response - 200 OK
 
 Returns the artifact as `text/plain` binary content with the following headers:
 
@@ -251,7 +248,7 @@ Read the deterministic rejection report for a batch. Each rejection entry identi
   The batch identifier of the export or import to inspect.
 </ParamField>
 
-### Response — 200 OK
+### Response - 200 OK
 
 <ResponseField name="batch_id" type="string (uuid)" required>
   The batch this report belongs to.
@@ -264,12 +261,15 @@ Read the deterministic rejection report for a batch. Each rejection entry identi
     <ResponseField name="record" type="integer" required>
       One-based record number in the source file where the rejection occurred.
     </ResponseField>
+
     <ResponseField name="field" type="string" required>
       The field name or path that caused the rejection.
     </ResponseField>
+
     <ResponseField name="code" type="string" required>
       Machine-readable rejection code.
     </ResponseField>
+
     <ResponseField name="reference" type="string">
       Optional human-readable reference value to aid in correction.
     </ResponseField>
@@ -312,10 +312,9 @@ curl -sS \
 
 ## POST /api/regulatory-exports/{batchId}/delivery
 
-Mark a generated export as delivered to a regulatory authority and retain the external authority reference as durable evidence. Once recorded, the batch moves to `DELIVERED` state. This operation is idempotent — replaying with the same idempotency key and body is safe.
+Mark a generated export as delivered to a regulatory authority and retain the external authority reference as durable evidence. Once recorded, the batch moves to `DELIVERED` state. This operation is idempotent - replaying with the same idempotency key and body is safe.
 
-**Required permission:** `compliance.manage`  
-**Required headers:** `Idempotency-Key`, `X-Correlation-ID`
+**Required permission:** `compliance.manage`<br />**Required headers:** `Idempotency-Key`, `X-Correlation-ID`
 
 ### Path parameters
 
@@ -347,7 +346,7 @@ Mark a generated export as delivered to a regulatory authority and retain the ex
   The timestamp at which delivery to the authority occurred. Defaults to the server time of the request if omitted.
 </ParamField>
 
-### Response — 201 Created
+### Response - 201 Created
 
 Returns the updated `LegacyBatchReceipt` with `state: "DELIVERED"` and the `authority_reference` and `delivered_at` fields populated.
 

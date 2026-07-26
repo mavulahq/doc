@@ -13,9 +13,11 @@ MAVULA Identity Access implements the OpenID Connect Discovery specification, wh
 Returns the OpenID Provider metadata document for `https://identity.mavula.dev`. The response is a standard JSON object defined by [OpenID Connect Discovery 1.0](https://openid.net/specs/openid-connect-discovery-1_0.html). No authentication is required.
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://identity.mavula.dev/.well-known/openid-configuration
 ```
+
 </CodeGroup>
 
 ### Response `200 OK`
@@ -25,7 +27,7 @@ curl -sS https://identity.mavula.dev/.well-known/openid-configuration
 </ResponseField>
 
 <ResponseField name="authorization_endpoint" type="string" required>
-  The URL to which you redirect the user agent to begin the Authorization Code + PKCE flow. Always `https://identity.mavula.dev/auth`.
+  The URL to which you redirect the user agent to begin the Authorization Code \+ PKCE flow. Always `https://identity.mavula.dev/auth`.
 </ResponseField>
 
 <ResponseField name="token_endpoint" type="string" required>
@@ -41,7 +43,7 @@ curl -sS https://identity.mavula.dev/.well-known/openid-configuration
 </ResponseField>
 
 <ResponseField name="response_types_supported" type="string[]" required>
-  The response types this server supports. MAVULA supports `["code"]` only — the Authorization Code flow.
+  The response types this server supports. MAVULA supports `["code"]` only - the Authorization Code flow.
 </ResponseField>
 
 <ResponseField name="grant_types_supported" type="string[]">
@@ -80,7 +82,7 @@ curl -sS https://identity.mavula.dev/.well-known/openid-configuration
 ```
 
 <Note>
-  The `additionalProperties` constraint on this object is intentionally open — future versions of MAVULA Identity Access may add fields to the metadata document without a breaking change. Your parser should tolerate unknown fields.
+  The `additionalProperties` constraint on this object is intentionally open - future versions of MAVULA Identity Access may add fields to the metadata document without a breaking change. Your parser should tolerate unknown fields.
 </Note>
 
 ---
@@ -90,9 +92,11 @@ curl -sS https://identity.mavula.dev/.well-known/openid-configuration
 Returns the JSON Web Key Set (JWKS) containing the public RSA keys that MAVULA uses to sign all JWTs. Resource servers must fetch and cache these keys to perform local signature verification on every inbound Bearer token. No authentication is required.
 
 <CodeGroup>
+
 ```bash cURL
 curl -sS https://identity.mavula.dev/jwks
 ```
+
 </CodeGroup>
 
 ### Response `200 OK`
@@ -110,7 +114,7 @@ curl -sS https://identity.mavula.dev/jwks
     </ResponseField>
 
     <ResponseField name="use" type="string" required>
-      Intended use. Always `sig` — these keys are for signature verification only, never encryption.
+      Intended use. Always `sig` - these keys are for signature verification only, never encryption.
     </ResponseField>
 
     <ResponseField name="alg" type="string" required>
@@ -150,5 +154,5 @@ curl -sS https://identity.mavula.dev/jwks
 ```
 
 <Warning>
-  Cache the JWKS response according to standard HTTP cache headers. Do not re-fetch the key set on every token validation — this will create unnecessary latency and may result in rate limiting. However, implement a fallback that re-fetches the JWKS when you encounter a JWT signed with an unknown `kid`, to handle key rotations gracefully.
+  Cache the JWKS response according to standard HTTP cache headers. Do not re-fetch the key set on every token validation - this will create unnecessary latency and may result in rate limiting. However, implement a fallback that re-fetches the JWKS when you encounter a JWT signed with an unknown `kid`, to handle key rotations gracefully.
 </Warning>
